@@ -8,6 +8,11 @@ While* is a simple imperative programming language used in computer science educ
 - Basic imperative programming (variables, loops, conditionals)
 - Type systems and type safety
 - Formal verification using Hoare logic
+- Program analysis and control-flow reasoning
+
+Useful links:
+- [Online While* editor](https://wiz.cs.tu-dortmund.de)
+- [While* project at AQUA](https://github.com/tudo-aqua/whilestar)
 
 ## What does this extension do?
 
@@ -19,6 +24,23 @@ This extension turns VS Code into a complete development environment for While*.
 - 🐛 **Visual debugger** - Step through code line-by-line with inline variable values
 - ✅ **Type checker** - Verify your program is type-correct
 - 🔍 **Proof verifier** - Check formal correctness proofs (for Hoare logic assignments)
+- 📊 **Dataflow analyses** - Run liveness, reachability, reaching-definitions, and taint analyses
+- 🕸️ **Mermaid CFG visualization** - View rendered control-flow and transition graphs directly in the extension
+- 🔁 **Transition CFG support** - Inspect the transition system used for program reasoning
+
+## Supported While* Features
+
+The extension supports modern While* workflows beyond editing and execution:
+
+- Program execution and interactive debugging
+- Type checking and Hoare-style proof checking
+- Dataflow analyses:
+  - Liveness analysis
+  - Reachability analysis
+  - Reaching definitions analysis
+  - Taint analysis
+- Transition CFG generation
+- Visual graph rendering for CFG-based analyses
 
 ## Installation from VSIX
 
@@ -56,6 +78,11 @@ Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for:
 - **WhileStar: Debug Code** - Step through your code with visual debugging
 - **WhileStar: Type Check Code** - Verify your program's types are correct
 - **WhileStar: Proof Check Code** - Verify Hoare logic proofs (if your code has annotations)
+- **WhileStar: Run Liveness Analysis** - Compute liveness information
+- **WhileStar: Run Reachability Analysis** - Compute reachable program states
+- **WhileStar: Run Reaching Definitions Analysis** - Inspect reaching definitions
+- **WhileStar: Run Taint Analysis** - Inspect information-flow/taint propagation
+- **WhileStar: Show Transition CFG** - Show the transition control-flow graph
 
 
 ## Local Development
@@ -82,6 +109,11 @@ pnpm run build
    - Press `F5` in VS Code or run "Debug: Start Debugging" command
    - This opens a new VS Code window with the extension loaded
    - Test your changes there
+
+## Authors
+
+- [Richard Stewing](https://github.com/haetze)
+- [Assanali Uzakov](https://github.com/asanali-uzakov)
 
 ## Credits
 
