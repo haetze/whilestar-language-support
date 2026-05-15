@@ -1,0 +1,32 @@
+{
+  "name": "while-star",
+  "scopeName": "source.while-star",
+  "fileTypes": [
+    ".wstar"
+  ],
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "name": "keyword.control.while-star",
+      "match": "\\b(and|else|extern|fail|false|if|int|invariant|not|or|print|swap|true|while)\\b|\\b(code:|post:|pre:|vars:)\\B"
+    },
+    {
+      "name": "string.quoted.double.while-star",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "include": "#string-character-escape"
+        }
+      ]
+    }
+  ],
+  "repository": {
+    "string-character-escape": {
+      "name": "constant.character.escape.while-star",
+      "match": "\\\\(x[0-9A-Fa-f]{2}|u[0-9A-Fa-f]{4}|u\\{[0-9A-Fa-f]+\\}|[0-2][0-7]{0,2}|3[0-6][0-7]?|37[0-7]?|[4-7][0-7]?|.|$)"
+    }
+  }
+}

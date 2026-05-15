@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>While* visual interpreter</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        /* Top section */
+
+        button {
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: 12px;
+            padding: 12px;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.3s;
+        }
+
+        button:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        button:disabled {
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        input {
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            padding: 12px;
+            border-radius: 12px;
+            border: none;
+        }
+
+        input::placeholder {
+            color: var(--vscode-input-placeholderForeground);
+        }
+
+        label {
+            color: var(--vscode-input-placeholderForeground);
+        }
+
+        body {
+            background: var(--vscode-editor-background);
+            color: var(--vscode-editor-foreground);
+            margin: 0;
+        }
+
+        .container {
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .panel-group {
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 10px;
+            overflow: hidden;
+            background: var(--vscode-editorWidget-background);
+        }
+
+        .panel-group summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 12px 14px;
+            font-weight: 600;
+            border-bottom: 1px solid transparent;
+        }
+
+        .panel-group[open] summary {
+            border-bottom-color: var(--vscode-panel-border);
+        }
+
+        .panel-group summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .panel-group .panel-body {
+            padding: 12px;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+        }
+
+        .settings {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, opacity 0.2s ease-out;
+            max-height: 1000px;
+            opacity: 1;
+        }
+
+        .settings.hidden {
+            max-height: 0;
+            opacity: 0;
+            margin: 0;
+            padding: 0;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6,
+        p {
+            padding: 0;
+            margin: 0;
+        }
+
+        hr {
+            border-color: var(--vscode-panel-border);
+            width: 100%;
+        }
+
+
+        pre {
+            white-space: pre;
+            word-break: normal;
+            padding: 16px;
+            border-radius: 8px;
+            background-color: var(--vscode-editorWidget-background);
+            color: var(--vscode-editor-foreground);
+            height: fit-content;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            overflow-x: scroll;
+        }
+
+        /* Output section */
+
+        #output {
+            /* background-color: var(--vscode-editorWidget-background);
+            color: var(--vscode-editor-foreground);
+            padding: 12px;
+            border-radius: 12px; */
+
+            overflow-y: hidden;
+            overflow-x: auto;
+            height: 100%;
+            font-size: 1rem;
+            /* animation: scale 0.3s ease-in-out; */
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 12px 0;
+            flex-wrap: wrap;
+        }
+
+        @keyframes scale {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        #settingsToggle {
+            position: absolute;
+            top: 24px;
+            right: 32px;
+            color: var(--vscode-textLink-foreground);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        #settingsToggle:hover {
+            text-decoration: underline;
+        }
+
+        /* Debug specific styles */
+        .debug button {
+            padding: 4px 16px;
+            border-radius: 6px;
+        }
+
+        .debug-content {
+            margin-top: 12px;
+        }
+
+        .debug-step {
+            display: grid;
+            gap: 24px;
+            grid-template-columns: 1fr;
+        }
+
+        .debug-step .proof {
+            grid-column: 1 / -1;
+        }
+
+        @media screen and (min-width: 600px) {
+            .debug-step {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .configuration {
+                grid-column: 1 / -1;
+            }
+        }
+
+        @media screen and (min-width: 900px) {
+            .debug-step {
+                grid-template-columns: 1fr 1fr 1fr;
+            }
+
+            .configuration {
+                grid-column: auto;
+            }
+        }
+
+        .debug-step>h6 {
+            font-size: 0.9rem;
+            grid-column: 1 / -1;
+        }
+
+        .debug-step h6 {
+            font-size: 0.8rem;
+        }
+
+        .debug-step>div {
+            padding: 12px;
+            background-color: var(--vscode-editorWidget-background);
+            border-radius: 8px;
+            overflow-x: scroll;
+        }
+
+        .debug-step pre {
+            border: 1px solid var(--vscode-editorWidget-border);
+        }
+
+        .debug-step code {
+            color: var(--vscode-editor-foreground);
+            background: transparent;
+        }
+
+        .debug-step table {
+            width: 100%;
+            padding: 16px;
+            border-radius: 8px;
+            border-collapse: collapse;
+            margin-block: 12px;
+        }
+
+        .debug-step table th,
+        .debug-step table td {
+            padding: 8px;
+            border: 1px solid var(--vscode-editorWidget-border);
+            text-align: left;
+        }
+
+        .addr {
+            color: #669955;
+            font-weight: bold;
+        }
+
+        .read {
+            color: #e35142;
+            font-weight: bold;
+        }
+
+        .write {
+            color: #0a58ca;
+            font-weight: bold;
+        }
+
+        .vname {
+            color: #ffc107;
+            font-weight: bold;
+        }
+
+        /* Type check specific styles */
+        .tc h6 {
+            font-size: 0.8rem;
+        }
+
+        .type-check-result {
+            background-color: var(--vscode-editorWidget-background);
+            color: var(--vscode-editor-foreground);
+            margin-block: 12px;
+            padding: 12px;
+            border-radius: 8px;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .scrollpane {
+            width: 100%;
+            height: 100%;
+            overflow-x: scroll;
+            overflow-y: scroll;
+        }
+
+        /* Proof styles (shared between debug and tc) */
+        .tc .proof {
+            grid-column: 1 / -1;
+            padding: 24px 12px;
+            text-align: center;
+            display: inline-block;
+            width: max-content;
+        }
+
+        .proof-content {
+            padding: 24px 12px;
+            text-align: center;
+            display: inline-block;
+            width: max-content;
+        }
+
+        .premise {
+            display: inline-block;
+            margin-left: 1em;
+            margin-right: 1em;
+        }
+
+        .conclusion {
+            display: inline;
+        }
+
+        .rule {
+            border-top: 1px solid var(--vscode-editor-foreground);
+            margin-block: 4px;
+            text-align: right;
+            display: block;
+            height: 1px;
+            z-index: 2;
+        }
+
+        .rulename {
+            background-color: black;
+            padding: 1px;
+            color: white;
+            font-size: x-small;
+            visibility: hidden;
+            z-index: 1;
+            position: relative;
+            display: inline-block;
+            height: auto;
+            top: -1.5em;
+        }
+
+        .conclusion>span,
+        .conclusion>span>span {
+            color: var(--vscode-editorInfo-foreground) !important;
+        }
+
+        .ctx {
+            margin: 1em;
+        }
+
+        .proof:hover .rule .rulename {
+            visibility: visible;
+        }
+
+        /* Content area animation */
+        #content-area {
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+
+        #content-area.fade-out {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+
+        #content-area.fade-in {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Disable animation class */
+        #content-area.no-animation {
+            transition: none !important;
+        }
+
+        /* Debug highlighting styles */
+        .highlighted {
+            background-color: rgba(255, 193, 7, 0.3);
+            font-weight: bold;
+        }
+
+        .read-highlight {
+            background-color: rgba(34, 80, 139, 0.425);
+            font-weight: bold;
+        }
+
+        .write-highlight {
+            background-color: rgba(220, 20, 60, 0.3);
+            font-weight: bold;
+        }
+
+        .analysis-grid {
+            display: grid;
+            gap: 16px;
+            grid-template-columns: 1fr;
+        }
+
+        @media screen and (min-width: 900px) {
+            .analysis-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .analysis-grid > div,
+        .transition-cfg,
+        .run,
+        .error,
+        .analysis-summary {
+            padding: 12px;
+            background-color: var(--vscode-editorWidget-background);
+            border-radius: 8px;
+        }
+
+        .error {
+            color: var(--vscode-errorForeground);
+        }
+
+
+        /* Table styles */
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        th,
+        td {
+            border: 1px solid var(--vscode-panel-border);
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: var(--vscode-editor-selectionBackground);
+            font-weight: bold;
+        }
+
+        .proof-table {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .proof-card {
+            padding: 14px;
+            background-color: var(--vscode-editorWidget-background);
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 10px;
+        }
+
+        .proof-card h5 {
+            margin-bottom: 12px;
+        }
+
+        .proof-layout {
+            display: grid;
+            gap: 16px;
+            grid-template-columns: 1fr;
+        }
+
+        @media screen and (min-width: 900px) {
+            .proof-layout {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .proof-program pre,
+        .proof-vcs pre {
+            margin: 6px 0 12px;
+        }
+
+        .proof-assertion {
+            color: #0000ea;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .proof-vc {
+            padding: 10px 0;
+            border-top: 1px solid var(--vscode-panel-border);
+        }
+
+        .proof-vc:first-child {
+            border-top: none;
+            padding-top: 0;
+        }
+
+        .proof-vc-title {
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .proof-vc-result {
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .proof-vc-result.success {
+            color: #00aa5a;
+        }
+
+        .proof-vc-result.failure {
+            color: #ea0000;
+        }
+
+        .analysis-summary {
+            margin: 12px 0;
+            border: 1px solid var(--vscode-panel-border);
+        }
+
+        .analysis-summary strong {
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .mermaid-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .mermaid {
+            min-height: 80px;
+            text-align: center;
+        }
+
+        .mermaid-source summary {
+            cursor: pointer;
+            color: var(--vscode-textLink-foreground);
+        }
+
+        .highlight-row {
+            outline: 2px solid var(--vscode-textLink-foreground);
+            background-color: var(--vscode-editor-selectionBackground);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <p id="settingsToggle">Hide settings</p>
+
+        <div class="settings">
+            <h4 style="font-size: 1rem; margin-top: 12px;">While* visual interpreter</h4>
+
+            <hr>
+            <p>Settings</p>
+
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                <label for="steps">Max. Steps (<=500) </label>
+                        <label for="inputs">Input Values </label>
+                        <input type="number" id="steps" placeholder="Max. Steps (<=500)"
+                            onchange="updateSteps(this.value)" value="50">
+                        <input type="text" id="inputs" placeholder="Type your input values"
+                            onchange="updateInputs(this.value)" value="">
+            </div>
+
+
+            <hr>
+            <p>Actions</p>
+
+            <details class="panel-group" open>
+                <summary>Execution &amp; Runtime</summary>
+                <div class="panel-body action-grid">
+                    <button class="action" onclick="run()">Run</button>
+                    <button class="action" onclick="debug()">Debug</button>
+                </div>
+            </details>
+
+            <details class="panel-group">
+                <summary>Proof Systems</summary>
+                <div class="panel-body action-grid">
+                    <button class="action" onclick="tc()">Type check</button>
+                    <button class="action" onclick="proof()">Hoare (WPC)</button>
+                </div>
+            </details>
+
+            <details class="panel-group" open>
+                <summary>Dataflow Analyses</summary>
+                <div class="panel-body action-grid">
+                    <button class="action" onclick="rdAnalysis()">Reaching Defs.</button>
+                    <button class="action" onclick="livenessAnalysis()">Liveness</button>
+                    <button class="action" onclick="reachabilityAnalysis()">Reach</button>
+                    <button class="action" onclick="taintAnalysis()">Taint</button>
+                </div>
+            </details>
+
+            <details class="panel-group">
+                <summary>Model Checking</summary>
+                <div class="panel-body action-grid">
+                    <button class="action" onclick="transitionCfg()">Transition CFG</button>
+                </div>
+            </details>
+            <hr>
+        </div>
+
+        <div id="output">
+            <div id="content-area">
+                <!-- Dynamic content will be inserted here -->
+            </div>
+        </div>
+
+    </div>
+
+    <script src="__MERMAID_SCRIPT_URI__"></script>
+    <script>
+        const vscode = acquireVsCodeApi();
+        let mermaidInitialized = false;
+
+        // Initialize webview state
+        let currentMode = 'empty';
+        // Listen for messages from the extension
+        window.addEventListener('message', event => {
+            const message = event.data;
+
+            switch (message.command) {
+                case 'updateContent':
+                    updateContent(message.mode, message.output, message.animate !== false);
+                    break;
+                case 'updateSettings':
+                    updateSettings(message.steps, message.inputs);
+                    break;
+            }
+        });
+
+        function updateContent(mode, output, animate = true) {
+            currentMode = mode;
+            const contentArea = document.getElementById('content-area');
+
+            // If no animation is requested, apply content immediately
+            if (!animate) {
+                contentArea.classList.add('no-animation');
+                applyContent(contentArea, mode, output);
+                // Remove no-animation class after a brief delay to allow future animations
+                setTimeout(() => {
+                    contentArea.classList.remove('no-animation');
+                }, 50);
+                return;
+            }
+
+            // Animate content change
+            contentArea.classList.add('fade-out');
+
+            setTimeout(() => {
+                applyContent(contentArea, mode, output);
+                contentArea.classList.remove('fade-out');
+                contentArea.classList.add('fade-in');
+
+                // Clean up animation classes
+                setTimeout(() => {
+                    contentArea.classList.remove('fade-in');
+                }, 300);
+            }, 150);
+        }
+
+        function applyContent(contentArea, mode, output) {
+            if (mode === 'empty') {
+                contentArea.innerHTML = '<p>Select an action to see results.</p>';
+                return;
+            }
+
+            let html = '';
+            switch (mode) {
+                case 'run':
+                case 'debug':
+                case 'tc':
+                    html = output;
+                    break;
+                case 'proof':
+                    html = transformProofHtml(output);
+                    break;
+                case 'analysis':
+                    html = output;
+                    break;
+                case 'transition-cfg':
+                    html = output;
+                    break;
+            }
+
+            contentArea.innerHTML = html;
+            renderMermaid(contentArea);
+        }
+
+        async function renderMermaid(contentArea) {
+            if (!window.mermaid) {
+                return;
+            }
+
+            if (!mermaidInitialized) {
+                window.mermaid.initialize({
+                    startOnLoad: false,
+                    securityLevel: 'loose',
+                    theme: 'neutral'
+                });
+                mermaidInitialized = true;
+            }
+
+            const diagrams = Array.from(contentArea.querySelectorAll('.mermaid'));
+            if (diagrams.length === 0) {
+                return;
+            }
+
+            try {
+                diagrams.forEach(element => element.removeAttribute('data-processed'));
+                await window.mermaid.run({
+                    querySelector: '.mermaid'
+                });
+            } catch (error) {
+                console.error('Failed to render Mermaid diagram', error);
+            }
+        }
+
+        function nodeClick(id) {
+            const row = document.getElementById(`dfRow-${id}`);
+            if (!row) {
+                return;
+            }
+
+            const highlighted = document.querySelector('.highlight-row');
+            if (highlighted) {
+                highlighted.classList.remove('highlight-row');
+            }
+
+            row.classList.add('highlight-row');
+            row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+
+        function transformProofHtml(output) {
+            const container = document.createElement('div');
+            container.innerHTML = output;
+            const rows = Array.from(container.querySelectorAll('.proof-row'));
+
+            if (rows.length === 0) {
+                return output;
+            }
+
+            const cards = rows.map((row, index) => renderProofCard(row, index + 1)).join('');
+            return `<div class="proof-table">${cards}</div>`;
+        }
+
+        function renderProofCard(row, index) {
+            const fields = Array.from(row.querySelectorAll('table tr')).map(extractProofField);
+            const statement = fields.find(field => field.label === 'Statement')?.value || '';
+            const wpc = fields.find(field => field.label === 'WPC')?.value || '';
+            const post = fields.find(field => field.label === 'Post')?.value || '';
+            const vcs = Array.from(row.querySelectorAll('ol > li')).map(extractProofVc);
+            const vcsHtml = vcs.length > 0
+                ? vcs.map(renderProofVc).join('')
+                : '<p>No verification conditions.</p>';
+
+            return `
+                <section class="proof-card">
+                    <h5>Proof Step ${index}</h5>
+                    <div class="proof-layout">
+                        <div class="proof-program">
+                            ${wpc ? `<div class="proof-assertion">{ ${wpc} }</div>` : ''}
+                            <pre><code>${statement}</code></pre>
+                            ${post ? `<div class="proof-assertion">{ ${post} }</div>` : ''}
+                        </div>
+                        <div class="proof-vcs">
+                            ${vcsHtml}
+                        </div>
+                    </div>
+                </section>`;
+        }
+
+        function extractProofField(row) {
+            const label = row.querySelector('th')?.textContent?.trim() || '';
+            const value = row.querySelector('td code')?.textContent?.trim() || '';
+            return { label, value };
+        }
+
+        function extractProofVc(item) {
+            const explanation = item.querySelector('strong')?.textContent?.trim() || '';
+            const implication = item.querySelector('pre code')?.innerHTML || '';
+            const resultText = item.querySelector('div:last-child')?.textContent?.replace(/^Result:\s*/, '').trim() || '';
+            return { explanation, implication, resultText };
+        }
+
+        function renderProofVc(vc) {
+            const success = vc.resultText === 'successful.';
+            const symbol = success ? '✔' : '✖';
+            const klass = success ? 'success' : 'failure';
+
+            return `
+                <section class="proof-vc">
+                    <div class="proof-vc-title">${escapeHtml(vc.explanation)}</div>
+                    <pre><code>${vc.implication}</code></pre>
+                    <div class="proof-vc-result ${klass}">${symbol} ${escapeHtml(vc.resultText || 'unknown')}</div>
+                </section>`;
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function updateSettings(steps, inputs) {
+            document.getElementById('steps').value = steps;
+            document.getElementById('inputs').value = inputs;
+        }
+
+        function debugPrev() {
+            vscode.postMessage({
+                command: 'debugPrev',
+            });
+        }
+
+        function debugNext() {
+            vscode.postMessage({
+                command: 'debugNext',
+            });
+        }
+
+        function analysisPrev() {
+            vscode.postMessage({
+                command: 'analysisPrev',
+            });
+        }
+
+        function analysisNext() {
+            vscode.postMessage({
+                command: 'analysisNext',
+            });
+        }
+
+        function run() {
+            vscode.postMessage({
+                command: 'run',
+            });
+        }
+
+        function debug() {
+            vscode.postMessage({
+                command: 'debug',
+            });
+        }
+
+        function tc() {
+            vscode.postMessage({
+                command: 'tc',
+            });
+        }
+
+        function proof() {
+            vscode.postMessage({
+                command: 'proof',
+            });
+        }
+
+        function livenessAnalysis() {
+            vscode.postMessage({
+                command: 'liveness-analysis',
+            });
+        }
+
+        function reachabilityAnalysis() {
+            vscode.postMessage({
+                command: 'reachability-analysis',
+            });
+        }
+
+        function rdAnalysis() {
+            vscode.postMessage({
+                command: 'rd-analysis',
+            });
+        }
+
+        function taintAnalysis() {
+            vscode.postMessage({
+                command: 'taint-analysis',
+            });
+        }
+
+        function transitionCfg() {
+            vscode.postMessage({
+                command: 'transition-cfg',
+            });
+        }
+
+        function updateSteps(value) {
+            vscode.postMessage({
+                command: 'updateSteps',
+                value,
+            });
+        }
+
+        function updateInputs(value) {
+            vscode.postMessage({
+                command: 'updateInputs',
+                value,
+            });
+        }
+
+        function toggleSettings() {
+            const settingsDiv = document.querySelector('.settings');
+            const toggleButton = document.getElementById('settingsToggle');
+
+            if (settingsDiv.classList.contains('hidden')) {
+                settingsDiv.classList.remove('hidden');
+                toggleButton.textContent = 'Hide settings';
+            } else {
+                settingsDiv.classList.add('hidden');
+                toggleButton.textContent = 'Show settings';
+            }
+        }
+
+        // Add event listener when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function () {
+            const toggleButton = document.getElementById('settingsToggle');
+            toggleButton.addEventListener('click', toggleSettings);
+        });
+    </script>
+</body>
+
+</html>

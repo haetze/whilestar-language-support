@@ -1,0 +1,12 @@
+{
+    "projectName": "WhileStarLanguageSupport",
+    "languages": [{
+        "id": "while-star",
+        "grammar": "src/language-server/while-star.langium",
+        "fileExtensions": [".wstar"],
+        "textMate": {
+            "out": "syntaxes/while-star.tmLanguage.json"
+        }
+    }],
+    "out": "src/language-server/generated"
+}
