@@ -17,6 +17,107 @@ import {
 
 export type WebviewMode = 'run' | 'debug' | 'tc' | 'proof' | 'analysis' | 'transition-cfg' | 'empty';
 
+type TutorialStep = {
+    buttonId?: string,
+    title: string,
+    description: string,
+    exampleId?: 'ex2' | 'ex3'
+};
+
+const TUTORIAL_STEPS: TutorialStep[] = [
+    {
+        buttonId: 'action-run',
+        title: 'Run',
+        description: 'Start with Run to execute the sorting example and inspect its output.'
+    },
+    {
+        buttonId: 'action-debug',
+        title: 'Debug',
+        description: 'Open Debug to step through the program and inspect variables and memory.'
+    },
+    {
+        buttonId: 'action-debug-next',
+        title: 'Debug: Next',
+        description: 'Use Next to move one debug step forward through the execution.'
+    },
+    {
+        buttonId: 'action-debug-prev',
+        title: 'Debug: Prev',
+        description: 'Use Prev to move back to the previous debug step.'
+    },
+    {
+        buttonId: 'action-tc',
+        title: 'Type Check',
+        description: 'Use Type Check to verify the program against the While* type system.'
+    },
+    {
+        buttonId: 'action-proof',
+        title: 'Proof',
+        description: 'Open the Hoare proof view to inspect proof obligations for the example.'
+    },
+    {
+        buttonId: 'tutorialNext',
+        title: 'Switch Example',
+        description: 'The tutorial now switches to a compact While example for the dataflow analyses. Click Next after the new program is open.',
+        exampleId: 'ex3'
+    },
+    {
+        buttonId: 'action-liveness',
+        title: 'Liveness Analysis',
+        description: 'Run Liveness to inspect which variables stay relevant across the loop in the new example.'
+    },
+    {
+        buttonId: 'action-analysis-next',
+        title: 'Analysis: Next',
+        description: 'Move forward through the analysis iterations with Next.'
+    },
+    {
+        buttonId: 'action-analysis-prev',
+        title: 'Analysis: Prev',
+        description: 'Move back through the analysis iterations with Prev.'
+    },
+    {
+        buttonId: 'action-reachability',
+        title: 'Reachability Analysis',
+        description: 'Run Reachability to highlight reachable parts of the CFG.'
+    },
+    {
+        buttonId: 'action-analysis-next',
+        title: 'Reachability: Next',
+        description: 'Move forward through the Reachability iterations with Next.'
+    },
+    {
+        buttonId: 'action-analysis-prev',
+        title: 'Reachability: Prev',
+        description: 'Move back through the Reachability iterations with Prev.'
+    },
+    {
+        buttonId: 'action-rd',
+        title: 'Reaching Definitions',
+        description: 'Inspect how assignments propagate through the CFG with Reaching Definitions.'
+    },
+    {
+        buttonId: 'action-analysis-next',
+        title: 'Reaching Definitions: Next',
+        description: 'Move forward through the Reaching Definitions iterations with Next.'
+    },
+    {
+        buttonId: 'action-analysis-prev',
+        title: 'Reaching Definitions: Prev',
+        description: 'Move back through the Reaching Definitions iterations with Prev.'
+    },
+    {
+        buttonId: 'action-taint',
+        title: 'Taint Analysis',
+        description: 'Use Taint to inspect information-flow propagation in the example.'
+    },
+    {
+        buttonId: 'action-transition-cfg',
+        title: 'Transition CFG',
+        description: 'Finish with Transition CFG to inspect the rendered transition graph.'
+    }
+];
+
 export class WebviewManager implements vscode.Disposable {
     private panel: vscode.WebviewPanel | undefined;
     private context: vscode.ExtensionContext;
@@ -120,6 +221,9 @@ export class WebviewManager implements vscode.Disposable {
                             this.currentAnalysisIteration += 1;
                             this.renderCurrentAnalysis(false);
                         }
+                        break;
+                    case 'tutorialOpenExample':
+                        await this.openTutorialExample(message.exampleId);
                         break;
                 }
             },
@@ -324,6 +428,29 @@ export class WebviewManager implements vscode.Disposable {
         await this.handleTransitionCfgCommand();
     }
 
+    public startTutorial(): void {
+        if (!this.panel) {
+            return;
+        }
+
+        this.panel.webview.postMessage({
+            command: 'startTutorial',
+            steps: TUTORIAL_STEPS
+        });
+    }
+
+    public async openTutorialExample(exampleId: 'ex2' | 'ex3'): Promise<void> {
+        const filename = exampleId === 'ex3' ? 'ex3.wstar' : 'ex2.wstar';
+        const tutorialPath = this.context.asAbsolutePath(path.join('resources', 'tutorials', filename));
+        const document = await vscode.workspace.openTextDocument(vscode.Uri.file(tutorialPath));
+
+        await vscode.window.showTextDocument(document, {
+            preview: false,
+            viewColumn: vscode.ViewColumn.One,
+            preserveFocus: true
+        });
+    }
+
     public dispose(): void {
         this.clearEditorDecorations();
         if (this.panel) {
@@ -497,9 +624,9 @@ export class WebviewManager implements vscode.Disposable {
         return `
         <div class="debug">
             <div class="toolbar">
-                <button onclick="debugPrev()" ${response.hasPrevious ? '' : 'disabled'}>Prev</button>
+                <button id="action-debug-prev" class="action" onclick="debugPrev()" ${response.hasPrevious ? '' : 'disabled'}>Prev</button>
                 <span>Step ${response.currentStep} of ${response.totalSteps}</span>
-                <button onclick="debugNext()" ${response.hasNext ? '' : 'disabled'}>Next</button>
+                <button id="action-debug-next" class="action" onclick="debugNext()" ${response.hasNext ? '' : 'disabled'}>Next</button>
             </div>
             <div class="debug-step" data-step="${response.currentStep}">
                 <div class="configuration">
@@ -559,9 +686,9 @@ export class WebviewManager implements vscode.Disposable {
                 <span>${this.escapeHtml(title)}</span>
             </div>
             <div class="toolbar">
-                <button onclick="analysisPrev()" ${iterationIndex > 0 ? '' : 'disabled'}>Prev</button>
+                <button id="action-analysis-prev" class="action" onclick="analysisPrev()" ${iterationIndex > 0 ? '' : 'disabled'}>Prev</button>
                 <span>Iteration ${iteration.iterationNumber + 1} of ${result.iteration.length}</span>
-                <button onclick="analysisNext()" ${iterationIndex < result.iteration.length - 1 ? '' : 'disabled'}>Next</button>
+                <button id="action-analysis-next" class="action" onclick="analysisNext()" ${iterationIndex < result.iteration.length - 1 ? '' : 'disabled'}>Next</button>
             </div>
             ${result.checkResult ? `<p><strong>Check result:</strong> ${this.escapeHtml(result.checkResult)}</p>` : ''}
             <div class="analysis-grid">

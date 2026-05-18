@@ -114,6 +114,15 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
+	const tutorialCommandHandler = vscode.commands.registerCommand('whileStar.startTutorial', async () => {
+		try {
+			await runInteractiveTutorial(context, webviewManager);
+		} catch (error) {
+			console.error('Error running tutorial:', error);
+			vscode.window.showErrorMessage(`WhileStar tutorial failed: ${error instanceof Error ? error.message : String(error)}`);
+		}
+	});
+
 	context.subscriptions.push(
 		openCommandHandler,
 		runCommandHandler,
@@ -125,6 +134,7 @@ export function activate(context: vscode.ExtensionContext) {
 		rdCommandHandler,
 		taintCommandHandler,
 		transitionCfgCommandHandler,
+		tutorialCommandHandler,
 		webviewManager,
 		languageClient
 	);
@@ -173,4 +183,10 @@ function startLanguageClient(context: vscode.ExtensionContext): LanguageClient {
 	// Start the client. This will also launch the server
 	client.start();
 	return client;
+}
+
+async function runInteractiveTutorial(context: vscode.ExtensionContext, webviewManager: WebviewManager): Promise<void> {
+	await webviewManager.openTutorialExample('ex2');
+	await webviewManager.openWebview();
+	webviewManager.startTutorial();
 }

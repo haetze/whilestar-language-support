@@ -37,6 +37,11 @@
             opacity: 0.6;
         }
 
+        .action.tutorial-highlight {
+            outline: 3px solid #ff9800;
+            box-shadow: 0 0 0 4px rgba(255, 152, 0, 0.28);
+        }
+
         input {
             background-color: var(--vscode-input-background);
             color: var(--vscode-input-foreground);
@@ -93,6 +98,10 @@
             padding: 12px;
         }
 
+        .panel-group.tutorial-open {
+            border-color: #ff9800;
+        }
+
         .action-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -114,6 +123,32 @@
             opacity: 0;
             margin: 0;
             padding: 0;
+        }
+
+        .tutorial-banner {
+            display: none;
+            gap: 12px;
+            padding: 14px;
+            border: 1px solid var(--vscode-textLink-foreground);
+            border-radius: 10px;
+            background: var(--vscode-editorWidget-background);
+        }
+
+        .tutorial-banner.active {
+            display: grid;
+        }
+
+        .tutorial-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .tutorial-actions button.tutorial-highlight {
+            border-color: #ff8c00;
+            background: rgba(255, 140, 0, 0.18);
+            color: #ffd3a1;
+            box-shadow: 0 0 0 2px rgba(255, 140, 0, 0.28);
         }
 
         h1,
@@ -564,6 +599,16 @@
 
 <body>
     <div class="container">
+        <div id="tutorialBanner" class="tutorial-banner">
+            <div>
+                <h5 id="tutorialTitle"></h5>
+                <p id="tutorialDescription"></p>
+            </div>
+            <div class="tutorial-actions">
+                <button id="tutorialNext" onclick="tutorialNext()">Next</button>
+                <button id="tutorialSkip" onclick="tutorialSkip()">Skip Tutorial</button>
+            </div>
+        </div>
 
         <p id="settingsToggle">Hide settings</p>
 
@@ -589,33 +634,33 @@
             <details class="panel-group" open>
                 <summary>Execution &amp; Runtime</summary>
                 <div class="panel-body action-grid">
-                    <button class="action" onclick="run()">Run</button>
-                    <button class="action" onclick="debug()">Debug</button>
+                    <button id="action-run" class="action" onclick="run()">Run</button>
+                    <button id="action-debug" class="action" onclick="debug()">Debug</button>
                 </div>
             </details>
 
             <details class="panel-group">
                 <summary>Proof Systems</summary>
                 <div class="panel-body action-grid">
-                    <button class="action" onclick="tc()">Type check</button>
-                    <button class="action" onclick="proof()">Hoare (WPC)</button>
+                    <button id="action-tc" class="action" onclick="tc()">Type check</button>
+                    <button id="action-proof" class="action" onclick="proof()">Hoare (WPC)</button>
                 </div>
             </details>
 
             <details class="panel-group" open>
                 <summary>Dataflow Analyses</summary>
                 <div class="panel-body action-grid">
-                    <button class="action" onclick="rdAnalysis()">Reaching Defs.</button>
-                    <button class="action" onclick="livenessAnalysis()">Liveness</button>
-                    <button class="action" onclick="reachabilityAnalysis()">Reach</button>
-                    <button class="action" onclick="taintAnalysis()">Taint</button>
+                    <button id="action-rd" class="action" onclick="rdAnalysis()">Reaching Defs.</button>
+                    <button id="action-liveness" class="action" onclick="livenessAnalysis()">Liveness</button>
+                    <button id="action-reachability" class="action" onclick="reachabilityAnalysis()">Reach</button>
+                    <button id="action-taint" class="action" onclick="taintAnalysis()">Taint</button>
                 </div>
             </details>
 
             <details class="panel-group">
                 <summary>Model Checking</summary>
                 <div class="panel-body action-grid">
-                    <button class="action" onclick="transitionCfg()">Transition CFG</button>
+                    <button id="action-transition-cfg" class="action" onclick="transitionCfg()">Transition CFG</button>
                 </div>
             </details>
             <hr>
@@ -633,6 +678,9 @@
     <script>
         const vscode = acquireVsCodeApi();
         let mermaidInitialized = false;
+        let tutorialSteps = [];
+        let tutorialIndex = -1;
+        const requestedTutorialExamples = new Set();
 
         // Initialize webview state
         let currentMode = 'empty';
@@ -646,6 +694,9 @@
                     break;
                 case 'updateSettings':
                     updateSettings(message.steps, message.inputs);
+                    break;
+                case 'startTutorial':
+                    startTutorial(message.steps || []);
                     break;
             }
         });
@@ -706,6 +757,9 @@
 
             contentArea.innerHTML = html;
             renderMermaid(contentArea);
+            if (tutorialIndex >= 0) {
+                renderTutorial();
+            }
         }
 
         async function renderMermaid(contentArea) {
@@ -831,79 +885,189 @@
             document.getElementById('inputs').value = inputs;
         }
 
+        function startTutorial(steps) {
+            tutorialSteps = Array.isArray(steps) ? steps : [];
+            tutorialIndex = 0;
+            requestedTutorialExamples.clear();
+            renderTutorial();
+        }
+
+        function tutorialNext() {
+            if (tutorialIndex < 0) {
+                return;
+            }
+            tutorialIndex += 1;
+            if (tutorialIndex >= tutorialSteps.length) {
+                finishTutorial();
+                return;
+            }
+            renderTutorial();
+        }
+
+        function tutorialSkip() {
+            finishTutorial();
+        }
+
+        function finishTutorial() {
+            tutorialSteps = [];
+            tutorialIndex = -1;
+            requestedTutorialExamples.clear();
+            clearTutorialHighlight();
+            document.getElementById('tutorialBanner').classList.remove('active');
+        }
+
+        function renderTutorial() {
+            if (tutorialIndex < 0 || tutorialIndex >= tutorialSteps.length) {
+                finishTutorial();
+                return;
+            }
+
+            const step = tutorialSteps[tutorialIndex];
+            document.getElementById('tutorialTitle').textContent = `Tutorial ${tutorialIndex + 1}/${tutorialSteps.length}: ${step.title}`;
+            document.getElementById('tutorialDescription').textContent = step.description;
+            document.getElementById('tutorialNext').textContent = tutorialIndex === tutorialSteps.length - 1 ? 'Finish' : 'Next';
+            document.getElementById('tutorialBanner').classList.add('active');
+
+            if (step.exampleId && !requestedTutorialExamples.has(tutorialIndex)) {
+                requestedTutorialExamples.add(tutorialIndex);
+                vscode.postMessage({
+                    command: 'tutorialOpenExample',
+                    exampleId: step.exampleId
+                });
+            }
+
+            if (step.buttonId) {
+                highlightTutorialButton(step.buttonId);
+            } else {
+                clearTutorialHighlight();
+            }
+        }
+
+        function clearTutorialHighlight() {
+            document.querySelectorAll('.tutorial-highlight').forEach(element => {
+                element.classList.remove('tutorial-highlight');
+            });
+            document.querySelectorAll('.panel-group.tutorial-open').forEach(element => {
+                element.classList.remove('tutorial-open');
+            });
+        }
+
+        function highlightTutorialButton(buttonId) {
+            clearTutorialHighlight();
+            const button = document.getElementById(buttonId);
+            if (!button) {
+                return;
+            }
+
+            button.classList.add('tutorial-highlight');
+            if (buttonId === 'tutorialNext') {
+                button.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                return;
+            }
+            const group = button.closest('.panel-group');
+            if (group) {
+                group.classList.add('tutorial-open');
+                group.open = true;
+            }
+            button.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+
+        function advanceTutorialForButton(buttonId) {
+            if (tutorialIndex < 0 || tutorialIndex >= tutorialSteps.length) {
+                return;
+            }
+
+            if (tutorialSteps[tutorialIndex].buttonId === buttonId) {
+                tutorialNext();
+            }
+        }
+
         function debugPrev() {
+            advanceTutorialForButton('action-debug-prev');
             vscode.postMessage({
                 command: 'debugPrev',
             });
         }
 
         function debugNext() {
+            advanceTutorialForButton('action-debug-next');
             vscode.postMessage({
                 command: 'debugNext',
             });
         }
 
         function analysisPrev() {
+            advanceTutorialForButton('action-analysis-prev');
             vscode.postMessage({
                 command: 'analysisPrev',
             });
         }
 
         function analysisNext() {
+            advanceTutorialForButton('action-analysis-next');
             vscode.postMessage({
                 command: 'analysisNext',
             });
         }
 
         function run() {
+            advanceTutorialForButton('action-run');
             vscode.postMessage({
                 command: 'run',
             });
         }
 
         function debug() {
+            advanceTutorialForButton('action-debug');
             vscode.postMessage({
                 command: 'debug',
             });
         }
 
         function tc() {
+            advanceTutorialForButton('action-tc');
             vscode.postMessage({
                 command: 'tc',
             });
         }
 
         function proof() {
+            advanceTutorialForButton('action-proof');
             vscode.postMessage({
                 command: 'proof',
             });
         }
 
         function livenessAnalysis() {
+            advanceTutorialForButton('action-liveness');
             vscode.postMessage({
                 command: 'liveness-analysis',
             });
         }
 
         function reachabilityAnalysis() {
+            advanceTutorialForButton('action-reachability');
             vscode.postMessage({
                 command: 'reachability-analysis',
             });
         }
 
         function rdAnalysis() {
+            advanceTutorialForButton('action-rd');
             vscode.postMessage({
                 command: 'rd-analysis',
             });
         }
 
         function taintAnalysis() {
+            advanceTutorialForButton('action-taint');
             vscode.postMessage({
                 command: 'taint-analysis',
             });
         }
 
         function transitionCfg() {
+            advanceTutorialForButton('action-transition-cfg');
             vscode.postMessage({
                 command: 'transition-cfg',
             });

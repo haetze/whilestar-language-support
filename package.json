@@ -79,6 +79,10 @@
       {
         "command": "whileStar.transitionCfg",
         "title": "WhileStar: Show Transition CFG"
+      },
+      {
+        "command": "whileStar.startTutorial",
+        "title": "WhileStar: Start Interactive Tutorial"
       }
     ]
   },
