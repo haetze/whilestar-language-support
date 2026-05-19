@@ -28,32 +28,32 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     {
         buttonId: 'action-run',
         title: 'Run',
-        description: 'Start with Run to execute the sorting example and inspect its output.'
+        description: 'Use Run to execute the program concretely and inspect its output. In semantic terms, this applies the operational rules from the initial configuration until a final configuration or the step bound is reached.'
     },
     {
         buttonId: 'action-debug',
         title: 'Debug',
-        description: 'Open Debug to step through the program and inspect variables and memory.'
+        description: 'Open Debug to inspect execution one state at a time, including variables, memory, input, and output. This view exposes the small-step operational semantics and its intermediate configurations.'
     },
     {
         buttonId: 'action-debug-next',
         title: 'Debug: Next',
-        description: 'Use Next to move one debug step forward through the execution.'
+        description: 'Use Next to move to the semantic successor configuration. Each click follows one transition in the small-step execution relation.'
     },
     {
         buttonId: 'action-debug-prev',
         title: 'Debug: Prev',
-        description: 'Use Prev to move back to the previous debug step.'
+        description: 'Use Prev to return to the previously displayed configuration. In the tutorial this lets you compare adjacent states in the operational semantics.'
     },
     {
         buttonId: 'action-tc',
         title: 'Type Check',
-        description: 'Use Type Check to verify the program against the While* type system.'
+        description: 'Use Type Check to verify that expressions, variables, and statements are used consistently. Under the hood, it checks whether the program is derivable under the While* typing rules.'
     },
     {
         buttonId: 'action-proof',
         title: 'Proof',
-        description: 'Open the Hoare proof view to inspect proof obligations for the example.'
+        description: 'Open the Hoare proof view to inspect verification conditions for the specification. The proof engine computes weakest preconditions backward and checks the resulting obligations.'
     },
     {
         buttonId: 'tutorialNext',
@@ -64,57 +64,57 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     {
         buttonId: 'action-liveness',
         title: 'Liveness Analysis',
-        description: 'Run Liveness to inspect which variables stay relevant across the loop in the new example.'
+        description: 'Run Liveness to see which variable values still matter later in the program. Technically, this is a backward dataflow analysis that computes live-in and live-out sets to a fixpoint.'
     },
     {
         buttonId: 'action-analysis-next',
         title: 'Analysis: Next',
-        description: 'Move forward through the analysis iterations with Next.'
+        description: 'Move forward through the intermediate iterations of the current analysis. You are stepping through the successive approximations produced during fixpoint computation.'
     },
     {
         buttonId: 'action-analysis-prev',
         title: 'Analysis: Prev',
-        description: 'Move back through the analysis iterations with Prev.'
+        description: 'Move back through earlier approximation states of the current analysis. This makes the fixpoint iteration process visible instead of only showing the final result.'
     },
     {
         buttonId: 'action-reachability',
         title: 'Reachability Analysis',
-        description: 'Run Reachability to highlight reachable parts of the CFG.'
+        description: 'Run Reachability to identify which control-flow nodes can actually be entered. It works by propagating reachability facts forward from the entry node over the CFG.'
     },
     {
         buttonId: 'action-analysis-next',
         title: 'Reachability: Next',
-        description: 'Move forward through the Reachability iterations with Next.'
+        description: 'Move forward through the Reachability iteration steps. Each step shows how the set of reachable CFG nodes grows toward a fixpoint.'
     },
     {
         buttonId: 'action-analysis-prev',
         title: 'Reachability: Prev',
-        description: 'Move back through the Reachability iterations with Prev.'
+        description: 'Move back through the earlier Reachability approximations to compare how the CFG was explored.'
     },
     {
         buttonId: 'action-rd',
         title: 'Reaching Definitions',
-        description: 'Inspect how assignments propagate through the CFG with Reaching Definitions.'
+        description: 'Inspect which assignments may define the current value of a variable at each program point. This is a forward dataflow analysis over gen, kill, in, and out sets.'
     },
     {
         buttonId: 'action-analysis-next',
         title: 'Reaching Definitions: Next',
-        description: 'Move forward through the Reaching Definitions iterations with Next.'
+        description: 'Move forward through the Reaching Definitions iterations. Each step refines the propagated definition sets toward the least fixpoint.'
     },
     {
         buttonId: 'action-analysis-prev',
         title: 'Reaching Definitions: Prev',
-        description: 'Move back through the Reaching Definitions iterations with Prev.'
+        description: 'Move back through earlier Reaching Definitions approximations to inspect how definitions accumulated.'
     },
     {
         buttonId: 'action-taint',
         title: 'Taint Analysis',
-        description: 'Use Taint to inspect information-flow propagation in the example.'
+        description: 'Use Taint to inspect how marked information can propagate through assignments and control flow. The underlying analysis tracks taint facts through the CFG in an information-flow style.'
     },
     {
         buttonId: 'action-transition-cfg',
         title: 'Transition CFG',
-        description: 'Finish with Transition CFG to inspect the rendered transition graph.'
+        description: 'Finish with Transition CFG to inspect the control-flow structure used by the analyses. Here the program is represented as a graph of control points and possible transitions.'
     }
 ];
 
