@@ -580,6 +580,31 @@
             gap: 10px;
         }
 
+        .mermaid-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .graph-viewport {
+            overflow: hidden;
+            min-height: 220px;
+            border: 1px solid var(--vscode-panel-border);
+            border-radius: 10px;
+            background: var(--vscode-editorWidget-background);
+            cursor: grab;
+        }
+
+        .graph-viewport.dragging {
+            cursor: grabbing;
+        }
+
+        .graph-stage {
+            width: max-content;
+            min-width: 100%;
+            transform-origin: 0 0;
+        }
+
         .mermaid {
             min-height: 80px;
             text-align: center;
@@ -681,6 +706,7 @@
         let tutorialSteps = [];
         let tutorialIndex = -1;
         const requestedTutorialExamples = new Set();
+        const graphViewportStates = new Map();
 
         // Initialize webview state
         let currentMode = 'empty';
@@ -704,6 +730,7 @@
         function updateContent(mode, output, animate = true) {
             currentMode = mode;
             const contentArea = document.getElementById('content-area');
+            captureGraphViewportStates(contentArea);
 
             // If no animation is requested, apply content immediately
             if (!animate) {
@@ -786,9 +813,132 @@
                 await window.mermaid.run({
                     querySelector: '.mermaid'
                 });
+                initializeGraphViewports(contentArea);
             } catch (error) {
                 console.error('Failed to render Mermaid diagram', error);
             }
+        }
+
+        function defaultGraphViewportState() {
+            return { scale: 1, translateX: 0, translateY: 0 };
+        }
+
+        function captureGraphViewportStates(root) {
+            if (!root) {
+                return;
+            }
+
+            root.querySelectorAll('.mermaid-wrapper[data-graph-key]').forEach(wrapper => {
+                const key = wrapper.dataset.graphKey;
+                const state = wrapper._graphViewportState;
+                if (key && state) {
+                    graphViewportStates.set(key, { ...state });
+                }
+            });
+        }
+
+        function initializeGraphViewports(root) {
+            root.querySelectorAll('.mermaid-wrapper[data-graph-key]').forEach(wrapper => {
+                const viewport = wrapper.querySelector('.graph-viewport');
+                const stage = wrapper.querySelector('.graph-stage');
+                const key = wrapper.dataset.graphKey;
+                if (!viewport || !stage || !key) {
+                    return;
+                }
+
+                const savedState = graphViewportStates.get(key);
+                const state = savedState ? { ...savedState } : defaultGraphViewportState();
+                wrapper._graphViewportState = state;
+                applyGraphTransform(wrapper);
+
+                let dragStartX = 0;
+                let dragStartY = 0;
+                let pointerId = null;
+
+                viewport.onpointerdown = event => {
+                    pointerId = event.pointerId;
+                    dragStartX = event.clientX - state.translateX;
+                    dragStartY = event.clientY - state.translateY;
+                    viewport.classList.add('dragging');
+                    viewport.setPointerCapture(event.pointerId);
+                };
+
+                viewport.onpointermove = event => {
+                    if (pointerId !== event.pointerId) {
+                        return;
+                    }
+
+                    state.translateX = event.clientX - dragStartX;
+                    state.translateY = event.clientY - dragStartY;
+                    applyGraphTransform(wrapper);
+                };
+
+                const releasePointer = event => {
+                    if (pointerId !== event.pointerId) {
+                        return;
+                    }
+
+                    pointerId = null;
+                    viewport.classList.remove('dragging');
+                    graphViewportStates.set(key, { ...state });
+                    if (viewport.hasPointerCapture(event.pointerId)) {
+                        viewport.releasePointerCapture(event.pointerId);
+                    }
+                };
+
+                viewport.onpointerup = releasePointer;
+                viewport.onpointercancel = releasePointer;
+                viewport.onwheel = event => {
+                    event.preventDefault();
+                    const factor = event.deltaY < 0 ? 1.1 : 1 / 1.1;
+                    updateGraphZoom(wrapper, factor);
+                };
+            });
+        }
+
+        function applyGraphTransform(wrapper) {
+            const stage = wrapper.querySelector('.graph-stage');
+            const key = wrapper.dataset.graphKey;
+            const state = wrapper._graphViewportState;
+            if (!stage || !key || !state) {
+                return;
+            }
+
+            stage.style.transform = `translate(${state.translateX}px, ${state.translateY}px) scale(${state.scale})`;
+            graphViewportStates.set(key, { ...state });
+        }
+
+        function updateGraphZoom(wrapper, factor) {
+            const state = wrapper?._graphViewportState;
+            if (!state) {
+                return;
+            }
+
+            state.scale = Math.min(4, Math.max(0.4, state.scale * factor));
+            applyGraphTransform(wrapper);
+        }
+
+        function zoomGraph(button, factor) {
+            const wrapper = button.closest('.mermaid-wrapper');
+            if (!wrapper) {
+                return;
+            }
+
+            updateGraphZoom(wrapper, factor);
+        }
+
+        function resetGraphView(button) {
+            const wrapper = button.closest('.mermaid-wrapper');
+            if (!wrapper) {
+                return;
+            }
+
+            wrapper._graphViewportState = defaultGraphViewportState();
+            applyGraphTransform(wrapper);
+        }
+
+        function resetGraphViewportStates() {
+            graphViewportStates.clear();
         }
 
         function nodeClick(id) {
@@ -1011,6 +1161,7 @@
         }
 
         function run() {
+            resetGraphViewportStates();
             advanceTutorialForButton('action-run');
             vscode.postMessage({
                 command: 'run',
@@ -1018,6 +1169,7 @@
         }
 
         function debug() {
+            resetGraphViewportStates();
             advanceTutorialForButton('action-debug');
             vscode.postMessage({
                 command: 'debug',
@@ -1025,6 +1177,7 @@
         }
 
         function tc() {
+            resetGraphViewportStates();
             advanceTutorialForButton('action-tc');
             vscode.postMessage({
                 command: 'tc',
@@ -1032,6 +1185,7 @@
         }
 
         function proof() {
+            resetGraphViewportStates();
             advanceTutorialForButton('action-proof');
             vscode.postMessage({
                 command: 'proof',
@@ -1039,6 +1193,7 @@
         }
 
         function livenessAnalysis() {
+            resetGraphViewportStates();
             advanceTutorialForButton('action-liveness');
             vscode.postMessage({
                 command: 'liveness-analysis',
@@ -1046,6 +1201,7 @@
         }
 
         function reachabilityAnalysis() {
+            resetGraphViewportStates();
             advanceTutorialForButton('action-reachability');
             vscode.postMessage({
                 command: 'reachability-analysis',
@@ -1053,6 +1209,7 @@
         }
 
         function rdAnalysis() {
+            resetGraphViewportStates();
             advanceTutorialForButton('action-rd');
             vscode.postMessage({
                 command: 'rd-analysis',
@@ -1060,6 +1217,7 @@
         }
 
         function taintAnalysis() {
+            resetGraphViewportStates();
             advanceTutorialForButton('action-taint');
             vscode.postMessage({
                 command: 'taint-analysis',
@@ -1067,6 +1225,7 @@
         }
 
         function transitionCfg() {
+            resetGraphViewportStates();
             advanceTutorialForButton('action-transition-cfg');
             vscode.postMessage({
                 command: 'transition-cfg',

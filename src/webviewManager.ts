@@ -694,7 +694,7 @@ export class WebviewManager implements vscode.Disposable {
             <div class="analysis-grid">
                 <div>
                     <h6>Control-Flow Graph (Mermaid)</h6>
-                    ${this.renderMermaidBlock(iteration.cfg, 'Control-flow graph source')}
+                    ${this.renderMermaidBlock(iteration.cfg, 'Control-flow graph source', `analysis:${title}`)}
                 </div>
                 <div>
                     <h6>Facts</h6>
@@ -738,14 +738,23 @@ export class WebviewManager implements vscode.Disposable {
         return `
         <div class="transition-cfg">
             <h4>Transition CFG</h4>
-            ${this.renderMermaidBlock(cfg, 'Transition CFG source')}
+            ${this.renderMermaidBlock(cfg, 'Transition CFG source', 'transition-cfg')}
         </div>`;
     }
 
-    private renderMermaidBlock(diagram: string, sourceLabel: string): string {
+    private renderMermaidBlock(diagram: string, sourceLabel: string, graphKey: string): string {
         return `
-        <div class="mermaid-wrapper">
-            <pre class="mermaid">${this.escapeHtml(diagram)}</pre>
+        <div class="mermaid-wrapper" data-graph-key="${this.escapeHtml(graphKey)}">
+            <div class="mermaid-actions">
+                <button class="action" onclick="zoomGraph(this, 1.2)">Zoom in</button>
+                <button class="action" onclick="zoomGraph(this, 1 / 1.2)">Zoom out</button>
+                <button class="action" onclick="resetGraphView(this)">Reset view</button>
+            </div>
+            <div class="graph-viewport">
+                <div class="graph-stage">
+                    <pre class="mermaid">${this.escapeHtml(diagram)}</pre>
+                </div>
+            </div>
             <details class="mermaid-source">
                 <summary>${this.escapeHtml(sourceLabel)}</summary>
                 <pre><code>${this.escapeHtml(diagram)}</code></pre>
