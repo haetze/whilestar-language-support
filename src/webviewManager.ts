@@ -17,11 +17,14 @@ import {
 
 export type WebviewMode = 'run' | 'debug' | 'tc' | 'proof' | 'analysis' | 'transition-cfg' | 'empty';
 
+type TutorialExampleId = 'ex2' | 'ex3' | 'semantics';
+type TutorialPlacement = 'top' | 'output';
+
 type TutorialStep = {
     buttonId?: string,
     title: string,
     description: string,
-    exampleId?: 'ex2' | 'ex3'
+    exampleId?: TutorialExampleId
 };
 
 const TUTORIAL_STEPS: TutorialStep[] = [
@@ -115,6 +118,99 @@ const TUTORIAL_STEPS: TutorialStep[] = [
         buttonId: 'action-transition-cfg',
         title: 'Transition CFG',
         description: 'Finish with Transition CFG to inspect the control-flow structure used by the analyses. Here the program is represented as a graph of control points and possible transitions.'
+    }
+];
+
+const SEMANTICS_TUTORIAL_STEPS: TutorialStep[] = [
+    {
+        buttonId: 'tutorialNext',
+        title: 'Language Semantics',
+        description: 'This tutorial explains what a While* program means when it runs. The key idea from the slides is that a program state is a configuration: the remaining program together with the current memory.'
+    },
+    {
+        buttonId: 'tutorialNext',
+        title: 'Syntax vs. Meaning',
+        description: 'Syntax decides whether a program is well formed. Semantics gives that program a meaning by saying which evaluation and execution steps are allowed.'
+    },
+    {
+        buttonId: 'tutorialNext',
+        title: 'Variables and Memory',
+        description: 'The vars block creates a variable map v and a memory m. The map v sends each variable name to an address, and m stores integer values at those addresses.'
+    },
+    {
+        buttonId: 'action-debug',
+        title: 'Open the Machine State',
+        description: 'Click Debug to inspect the first configuration. The debugger shows the current statement, the remaining program, the variable map view, and the memory before and after the step.'
+    },
+    {
+        buttonId: 'action-debug-next',
+        title: 'Assignment',
+        description: 'Step to the first assignment. For a statement a := e, the address expression a is resolved to an address and e is evaluated to a number; the next memory is m[address |-> value].'
+    },
+    {
+        buttonId: 'action-debug-next',
+        title: 'More Memory Updates',
+        description: 'Step again. Assignments do not change the variable map v; they change the memory cell reached through v. That is why variable names remain stable while values change.'
+    },
+    {
+        buttonId: 'action-debug-next',
+        title: 'Address-Of',
+        description: 'Now p := &x stores the address of x in the pointer variable p. The expression &x evaluates to the address v(x), not to the current value stored in x.'
+    },
+    {
+        buttonId: 'action-debug-next',
+        title: 'Dereference',
+        description: 'The statement *p := 4 first reads p to obtain an address and then writes to the memory cell at that address. Since p contains &x, this update changes x indirectly.'
+    },
+    {
+        buttonId: 'action-debug-next',
+        title: 'Expression Evaluation',
+        description: 'Now z := x + y evaluates a compound expression. Because the pointer update changed x, the arithmetic rule for + combines the new value of x with y.'
+    },
+    {
+        buttonId: 'action-debug-next',
+        title: 'Pointer Summary',
+        description: 'Pointer semantics has two layers: address expressions resolve to memory addresses, while ordinary expression use reads the value stored at the resolved address.'
+    },
+    {
+        buttonId: 'action-debug-next',
+        title: 'Conditionals',
+        description: 'The if statement evaluates its boolean condition. If the condition is true, execution continues with the then block; otherwise it continues with the else block.'
+    },
+    {
+        buttonId: 'action-debug-next',
+        title: 'Selected Branch',
+        description: 'Step into the selected branch. The operational rule replaces the if statement by exactly the block whose guard result applies, followed by the remaining program.'
+    },
+    {
+        buttonId: 'action-debug-next',
+        title: 'Loop Test',
+        description: 'The while statement also starts by evaluating a boolean condition. If it is false, the loop disappears and execution continues after the loop.'
+    },
+    {
+        buttonId: 'action-debug-next',
+        title: 'Loop Unrolling',
+        description: 'When the while condition is true, the semantics unrolls the loop once: first execute the body, then put the same while statement back after the body.'
+    },
+    {
+        buttonId: 'action-debug-next',
+        title: 'Output',
+        description: 'Print evaluates its argument expressions and appends the text to the output stream. It observes values but does not update the variable map or memory.'
+    },
+    {
+        buttonId: 'action-debug-prev',
+        title: 'Compare Configurations',
+        description: 'Use Prev once to compare two neighboring configurations. This is useful for seeing exactly which part of the program or memory changed in one semantic step.'
+    },
+    {
+        buttonId: 'action-run',
+        title: 'Whole Execution',
+        description: 'Run executes the same transition relation repeatedly until the program finishes or the step bound is reached. The final output is the accumulated effect of all those small steps.'
+    },
+    {
+        buttonId: 'action-transition-cfg',
+        title: 'Control Flow',
+        description: 'The transition CFG summarizes the possible control moves of the program as a graph. The execution semantics follows one path through this graph, depending on the current memory.'
     }
 ];
 
@@ -429,18 +525,32 @@ export class WebviewManager implements vscode.Disposable {
     }
 
     public startTutorial(): void {
+        this.postTutorial(TUTORIAL_STEPS);
+    }
+
+    public startSemanticsTutorial(): void {
+        this.postTutorial(SEMANTICS_TUTORIAL_STEPS, 'output');
+    }
+
+    private postTutorial(steps: TutorialStep[], placement: TutorialPlacement = 'top'): void {
         if (!this.panel) {
             return;
         }
 
         this.panel.webview.postMessage({
             command: 'startTutorial',
-            steps: TUTORIAL_STEPS
+            steps,
+            placement
         });
     }
 
-    public async openTutorialExample(exampleId: 'ex2' | 'ex3'): Promise<void> {
-        const filename = exampleId === 'ex3' ? 'ex3.wstar' : 'ex2.wstar';
+    public async openTutorialExample(exampleId: TutorialExampleId): Promise<void> {
+        const filenames: Record<TutorialExampleId, string> = {
+            ex2: 'ex2.wstar',
+            ex3: 'ex3.wstar',
+            semantics: 'semantics.wstar'
+        };
+        const filename = filenames[exampleId];
         const tutorialPath = this.context.asAbsolutePath(path.join('resources', 'tutorials', filename));
         const document = await vscode.workspace.openTextDocument(vscode.Uri.file(tutorialPath));
 

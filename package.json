@@ -83,6 +83,10 @@
       {
         "command": "whileStar.startTutorial",
         "title": "WhileStar: Start Interactive Tutorial"
+      },
+      {
+        "command": "whileStar.startSemanticsTutorial",
+        "title": "WhileStar: Start Language Semantics Tutorial"
       }
     ]
   },

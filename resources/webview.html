@@ -624,14 +624,16 @@
 
 <body>
     <div class="container">
-        <div id="tutorialBanner" class="tutorial-banner">
-            <div>
-                <h5 id="tutorialTitle"></h5>
-                <p id="tutorialDescription"></p>
-            </div>
-            <div class="tutorial-actions">
-                <button id="tutorialNext" onclick="tutorialNext()">Next</button>
-                <button id="tutorialSkip" onclick="tutorialSkip()">Skip Tutorial</button>
+        <div id="tutorialTopAnchor">
+            <div id="tutorialBanner" class="tutorial-banner">
+                <div>
+                    <h5 id="tutorialTitle"></h5>
+                    <p id="tutorialDescription"></p>
+                </div>
+                <div class="tutorial-actions">
+                    <button id="tutorialNext" onclick="tutorialNext()">Next</button>
+                    <button id="tutorialSkip" onclick="tutorialSkip()">Skip Tutorial</button>
+                </div>
             </div>
         </div>
 
@@ -692,6 +694,7 @@
         </div>
 
         <div id="output">
+            <div id="tutorialOutputAnchor"></div>
             <div id="content-area">
                 <!-- Dynamic content will be inserted here -->
             </div>
@@ -705,6 +708,7 @@
         let mermaidInitialized = false;
         let tutorialSteps = [];
         let tutorialIndex = -1;
+        let tutorialPlacement = 'top';
         const requestedTutorialExamples = new Set();
         const graphViewportStates = new Map();
 
@@ -722,7 +726,7 @@
                     updateSettings(message.steps, message.inputs);
                     break;
                 case 'startTutorial':
-                    startTutorial(message.steps || []);
+                    startTutorial(message.steps || [], message.placement || 'top');
                     break;
             }
         });
@@ -1035,10 +1039,12 @@
             document.getElementById('inputs').value = inputs;
         }
 
-        function startTutorial(steps) {
+        function startTutorial(steps, placement = 'top') {
             tutorialSteps = Array.isArray(steps) ? steps : [];
             tutorialIndex = 0;
+            tutorialPlacement = placement === 'output' ? 'output' : 'top';
             requestedTutorialExamples.clear();
+            placeTutorialBanner();
             renderTutorial();
         }
 
@@ -1064,6 +1070,18 @@
             requestedTutorialExamples.clear();
             clearTutorialHighlight();
             document.getElementById('tutorialBanner').classList.remove('active');
+            tutorialPlacement = 'top';
+            placeTutorialBanner();
+        }
+
+        function placeTutorialBanner() {
+            const banner = document.getElementById('tutorialBanner');
+            const topAnchor = document.getElementById('tutorialTopAnchor');
+            const outputAnchor = document.getElementById('tutorialOutputAnchor');
+            const target = tutorialPlacement === 'output' ? outputAnchor : topAnchor;
+            if (banner && target && banner.parentElement !== target) {
+                target.appendChild(banner);
+            }
         }
 
         function renderTutorial() {
@@ -1073,6 +1091,7 @@
             }
 
             const step = tutorialSteps[tutorialIndex];
+            placeTutorialBanner();
             document.getElementById('tutorialTitle').textContent = `Tutorial ${tutorialIndex + 1}/${tutorialSteps.length}: ${step.title}`;
             document.getElementById('tutorialDescription').textContent = step.description;
             document.getElementById('tutorialNext').textContent = tutorialIndex === tutorialSteps.length - 1 ? 'Finish' : 'Next';

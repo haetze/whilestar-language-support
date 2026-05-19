@@ -116,10 +116,19 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const tutorialCommandHandler = vscode.commands.registerCommand('whileStar.startTutorial', async () => {
 		try {
-			await runInteractiveTutorial(context, webviewManager);
+			await runInteractiveTutorial(webviewManager);
 		} catch (error) {
 			console.error('Error running tutorial:', error);
 			vscode.window.showErrorMessage(`WhileStar tutorial failed: ${error instanceof Error ? error.message : String(error)}`);
+		}
+	});
+
+	const semanticsTutorialCommandHandler = vscode.commands.registerCommand('whileStar.startSemanticsTutorial', async () => {
+		try {
+			await runLanguageSemanticsTutorial(webviewManager);
+		} catch (error) {
+			console.error('Error running language semantics tutorial:', error);
+			vscode.window.showErrorMessage(`WhileStar semantics tutorial failed: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	});
 
@@ -135,6 +144,7 @@ export function activate(context: vscode.ExtensionContext) {
 		taintCommandHandler,
 		transitionCfgCommandHandler,
 		tutorialCommandHandler,
+		semanticsTutorialCommandHandler,
 		webviewManager,
 		languageClient
 	);
@@ -185,8 +195,14 @@ function startLanguageClient(context: vscode.ExtensionContext): LanguageClient {
 	return client;
 }
 
-async function runInteractiveTutorial(context: vscode.ExtensionContext, webviewManager: WebviewManager): Promise<void> {
+async function runInteractiveTutorial(webviewManager: WebviewManager): Promise<void> {
 	await webviewManager.openTutorialExample('ex2');
 	await webviewManager.openWebview();
 	webviewManager.startTutorial();
+}
+
+async function runLanguageSemanticsTutorial(webviewManager: WebviewManager): Promise<void> {
+	await webviewManager.openTutorialExample('semantics');
+	await webviewManager.openWebview();
+	webviewManager.startSemanticsTutorial();
 }

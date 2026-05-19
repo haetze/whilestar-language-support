@@ -1,0 +1,22 @@
+vars:
+  int x;
+  int y;
+  int z;
+  int *p;
+code:
+  x := 2;
+  y := 3;
+  p := &x;
+  *p := 4;
+  z := x + y;
+  if(z > 4) {
+    z := z - 1;
+  } else {
+    z := z + 1;
+  };
+  while(z > 0) {
+    print "z=", z;
+    z := z - 1;
+  };
+  print "done", z;
+post: (z = 0)
