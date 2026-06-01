@@ -50,6 +50,22 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
+	const storeCommandHandler = vscode.commands.registerCommand('whileStar.store', async () => {
+		try {
+			await webviewManager.executeStore();
+		} catch (error) {
+			console.error('Error storing program:', error);
+		}
+	});
+
+	const loadCommandHandler = vscode.commands.registerCommand('whileStar.load', async () => {
+		try {
+			await webviewManager.executeLoad();
+		} catch (error) {
+			console.error('Error loading program:', error);
+		}
+	});
+
 	const debugCommandHandler = vscode.commands.registerCommand('whileStar.debug', async () => {
 		try {
 			await webviewManager.executeDebug();
@@ -135,6 +151,8 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		openCommandHandler,
 		runCommandHandler,
+		storeCommandHandler,
+		loadCommandHandler,
 		debugCommandHandler,
 		tcCommandHandler,
 		proofCommandHandler,

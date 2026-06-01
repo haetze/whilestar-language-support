@@ -49,6 +49,14 @@
         "title": "WhileStar: Run Code"
       },
       {
+        "command": "whileStar.store",
+        "title": "WhileStar: Store Program"
+      },
+      {
+        "command": "whileStar.load",
+        "title": "WhileStar: Load Program"
+      },
+      {
         "command": "whileStar.debug",
         "title": "WhileStar: Debug Code"
       },

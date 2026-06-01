@@ -187,7 +187,7 @@ export const WhileStarGrammar = (): Grammar => loadedWhileStarGrammar ?? (loaded
                 "terminal": {
                   "$type": "RuleCall",
                   "rule": {
-                    "$ref": "#/rules@19"
+                    "$ref": "#/rules@21"
                   },
                   "arguments": []
                 }
@@ -225,7 +225,7 @@ export const WhileStarGrammar = (): Grammar => loadedWhileStarGrammar ?? (loaded
                 "terminal": {
                   "$type": "RuleCall",
                   "rule": {
-                    "$ref": "#/rules@19"
+                    "$ref": "#/rules@21"
                   },
                   "arguments": []
                 }
@@ -262,7 +262,7 @@ export const WhileStarGrammar = (): Grammar => loadedWhileStarGrammar ?? (loaded
                 "terminal": {
                   "$type": "RuleCall",
                   "rule": {
-                    "$ref": "#/rules@20"
+                    "$ref": "#/rules@22"
                   },
                   "arguments": []
                 }
@@ -278,7 +278,7 @@ export const WhileStarGrammar = (): Grammar => loadedWhileStarGrammar ?? (loaded
                 "terminal": {
                   "$type": "RuleCall",
                   "rule": {
-                    "$ref": "#/rules@19"
+                    "$ref": "#/rules@21"
                   },
                   "arguments": []
                 }
@@ -554,7 +554,7 @@ export const WhileStarGrammar = (): Grammar => loadedWhileStarGrammar ?? (loaded
                 "terminal": {
                   "$type": "RuleCall",
                   "rule": {
-                    "$ref": "#/rules@19"
+                    "$ref": "#/rules@21"
                   },
                   "arguments": []
                 }
@@ -580,7 +580,7 @@ export const WhileStarGrammar = (): Grammar => loadedWhileStarGrammar ?? (loaded
                 "terminal": {
                   "$type": "RuleCall",
                   "rule": {
-                    "$ref": "#/rules@19"
+                    "$ref": "#/rules@21"
                   },
                   "arguments": []
                 }
@@ -605,7 +605,7 @@ export const WhileStarGrammar = (): Grammar => loadedWhileStarGrammar ?? (loaded
                 "terminal": {
                   "$type": "RuleCall",
                   "rule": {
-                    "$ref": "#/rules@20"
+                    "$ref": "#/rules@22"
                   },
                   "arguments": []
                 }
@@ -621,7 +621,7 @@ export const WhileStarGrammar = (): Grammar => loadedWhileStarGrammar ?? (loaded
                 "terminal": {
                   "$type": "RuleCall",
                   "rule": {
-                    "$ref": "#/rules@19"
+                    "$ref": "#/rules@21"
                   },
                   "arguments": []
                 }
@@ -659,7 +659,7 @@ export const WhileStarGrammar = (): Grammar => loadedWhileStarGrammar ?? (loaded
             "terminal": {
               "$type": "RuleCall",
               "rule": {
-                "$ref": "#/rules@19"
+                "$ref": "#/rules@21"
               },
               "arguments": []
             }
@@ -708,7 +708,7 @@ export const WhileStarGrammar = (): Grammar => loadedWhileStarGrammar ?? (loaded
           {
             "$type": "RuleCall",
             "rule": {
-              "$ref": "#/rules@20"
+              "$ref": "#/rules@22"
             },
             "arguments": []
           },
@@ -733,7 +733,7 @@ export const WhileStarGrammar = (): Grammar => loadedWhileStarGrammar ?? (loaded
                 "terminal": {
                   "$type": "RuleCall",
                   "rule": {
-                    "$ref": "#/rules@19"
+                    "$ref": "#/rules@21"
                   },
                   "arguments": []
                 }
@@ -1542,7 +1542,7 @@ export const WhileStarGrammar = (): Grammar => loadedWhileStarGrammar ?? (loaded
               {
                 "$type": "RuleCall",
                 "rule": {
-                  "$ref": "#/rules@21"
+                  "$ref": "#/rules@23"
                 },
                 "arguments": []
               },
@@ -1584,7 +1584,7 @@ export const WhileStarGrammar = (): Grammar => loadedWhileStarGrammar ?? (loaded
               {
                 "$type": "RuleCall",
                 "rule": {
-                  "$ref": "#/rules@21"
+                  "$ref": "#/rules@23"
                 },
                 "arguments": []
               },
@@ -1626,7 +1626,7 @@ export const WhileStarGrammar = (): Grammar => loadedWhileStarGrammar ?? (loaded
               {
                 "$type": "RuleCall",
                 "rule": {
-                  "$ref": "#/rules@20"
+                  "$ref": "#/rules@22"
                 },
                 "arguments": []
               },
@@ -1647,7 +1647,7 @@ export const WhileStarGrammar = (): Grammar => loadedWhileStarGrammar ?? (loaded
               {
                 "$type": "RuleCall",
                 "rule": {
-                  "$ref": "#/rules@20"
+                  "$ref": "#/rules@22"
                 },
                 "arguments": []
               },
@@ -1673,6 +1673,26 @@ export const WhileStarGrammar = (): Grammar => loadedWhileStarGrammar ?? (loaded
       "definition": {
         "$type": "RegexToken",
         "regex": "/\\\\s+/"
+      },
+      "fragment": false
+    },
+    {
+      "$type": "TerminalRule",
+      "hidden": true,
+      "name": "ML_COMMENT",
+      "definition": {
+        "$type": "RegexToken",
+        "regex": "/\\\\/\\\\*[\\\\s\\\\S]*?\\\\*\\\\//"
+      },
+      "fragment": false
+    },
+    {
+      "$type": "TerminalRule",
+      "hidden": true,
+      "name": "SL_COMMENT",
+      "definition": {
+        "$type": "RegexToken",
+        "regex": "/\\\\/\\\\/[^\\\\n\\\\r]*/"
       },
       "fragment": false
     },

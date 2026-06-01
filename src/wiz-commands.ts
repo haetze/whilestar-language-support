@@ -85,6 +85,12 @@ function createBody(code: string, steps: number, inputs: string): string {
     return params.toString();
 }
 
+function createUrlBody(url: string): string {
+    const params = new URLSearchParams();
+    params.set('url', url);
+    return params.toString();
+}
+
 async function readError(response: Response): Promise<string> {
     const body = await response.text();
     return body.trim() || `${response.status} ${response.statusText}`;
@@ -122,8 +128,32 @@ async function requestJson<T>(endpoint: string, code: string, steps: number, inp
     return response.json() as Promise<T>;
 }
 
+async function requestProgramUrl(endpoint: string, url: string): Promise<string> {
+    const response = await fetch(`${wizBaseUrl}${endpoint}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+        },
+        body: createUrlBody(url)
+    });
+
+    if (!response.ok) {
+        throw new Error(await readError(response));
+    }
+
+    return response.text();
+}
+
 export function run(code: string, steps = 50, inputs = ''): Promise<string> {
     return requestText('/run', code, steps, inputs);
+}
+
+export function storeProgram(code: string, steps = 50, inputs = ''): Promise<string> {
+    return requestText('/store', code, steps, inputs);
+}
+
+export function loadProgram(url: string): Promise<string> {
+    return requestProgramUrl('/load', url);
 }
 
 export function debugJson(code: string, steps = 50, inputs = '', step = 0): Promise<DebugStepResponse> {

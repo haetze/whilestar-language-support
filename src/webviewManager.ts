@@ -8,9 +8,11 @@ import {
     DebugStepData,
     DebugStepResponse,
     debugJson,
+    loadProgram,
     proofHtml,
     run,
     runAnalysis,
+    storeProgram,
     tc,
     transitionCfg
 } from './wiz-commands';
@@ -269,6 +271,12 @@ export class WebviewManager implements vscode.Disposable {
                     case 'run':
                         await this.handleRunCommand();
                         break;
+                    case 'store':
+                        await this.handleStoreCommand();
+                        break;
+                    case 'load':
+                        await this.handleLoadCommand();
+                        break;
                     case 'debug':
                         this.debugStep = 0;
                         await this.handleDebugCommand(true);
@@ -344,6 +352,43 @@ export class WebviewManager implements vscode.Disposable {
             const content = this.getActiveEditorContent();
             const response = await run(content, this.steps, this.inputs);
             this.updateContent('run', this.wrapRunHtml(response));
+        } catch (error) {
+            this.updateContent('run', this.renderError(error));
+        }
+    }
+
+    private async handleStoreCommand(): Promise<void> {
+        this.clearEditorDecorations();
+        try {
+            const editor = this.getProgramEditor();
+            const content = this.getActiveEditorContent();
+            const cleanedContent = this.stripGeneratedStoreUrlComment(content);
+            const url = (await storeProgram(cleanedContent, this.steps, this.inputs)).trim();
+            await this.addStoreUrlComment(editor, url);
+            this.updateContent('run', this.wrapStoreHtml(url));
+        } catch (error) {
+            this.updateContent('run', this.renderError(error));
+        }
+    }
+
+    private async handleLoadCommand(): Promise<void> {
+        this.clearEditorDecorations();
+        try {
+            const url = await vscode.window.showInputBox({
+                title: 'Load WhileStar Program',
+                prompt: 'Enter a Wiz program URL',
+                placeHolder: 'https://wiz.cs.tu-dortmund.de/program/...',
+                ignoreFocusOut: true,
+                validateInput: value => this.validateProgramUrl(value)
+            });
+
+            if (!url) {
+                return;
+            }
+
+            const content = await loadProgram(url.trim());
+            await this.openLoadedProgram(url.trim(), content);
+            this.updateContent('run', this.wrapLoadHtml(url.trim()));
         } catch (error) {
             this.updateContent('run', this.renderError(error));
         }
@@ -460,7 +505,7 @@ export class WebviewManager implements vscode.Disposable {
         }
 
         if (this.lastProgramContent !== undefined) {
-            return this.lastProgramContent;
+            return this.stripGeneratedStoreUrlComment(this.lastProgramContent);
         }
 
         throw new Error('No WhileStar program buffer is available.');
@@ -486,6 +531,20 @@ export class WebviewManager implements vscode.Disposable {
             await this.openWebview();
         }
         await this.handleRunCommand();
+    }
+
+    public async executeStore(): Promise<void> {
+        if (!this.panel) {
+            await this.openWebview();
+        }
+        await this.handleStoreCommand();
+    }
+
+    public async executeLoad(): Promise<void> {
+        if (!this.panel) {
+            await this.openWebview();
+        }
+        await this.handleLoadCommand();
     }
 
     public async executeDebug(): Promise<void> {
@@ -880,6 +939,24 @@ export class WebviewManager implements vscode.Disposable {
         </div>`;
     }
 
+    private wrapStoreHtml(url: string): string {
+        return `
+        <div class="run">
+            <h4>Program Stored</h4>
+            <p>The stored program URL was added to the editor as a comment.</p>
+            <pre>${this.escapeHtml(url)}</pre>
+        </div>`;
+    }
+
+    private wrapLoadHtml(url: string): string {
+        return `
+        <div class="run">
+            <h4>Program Loaded</h4>
+            <p>The program was opened as a new unsaved While* document.</p>
+            <pre>${this.escapeHtml(url)}</pre>
+        </div>`;
+    }
+
     private renderError(error: unknown): string {
         const message = error instanceof Error ? error.message : String(error);
         return `<div class="error"><strong>Error:</strong> ${this.escapeHtml(message)}</div>`;
@@ -976,6 +1053,96 @@ export class WebviewManager implements vscode.Disposable {
         }
 
         return visibleWhileStarEditors[0];
+    }
+
+    private async addStoreUrlComment(editor: vscode.TextEditor | undefined, url: string): Promise<void> {
+        const document = editor?.document ?? this.getLastProgramDocument();
+        if (!document) {
+            throw new Error('No WhileStar editor is available to update with the stored program URL.');
+        }
+
+        const existingText = document.getText();
+        const textWithoutGeneratedComment = this.stripGeneratedStoreUrlComment(existingText);
+        const updatedText = `// Wiz URL: ${url}\n${textWithoutGeneratedComment.replace(/^\s*\n/, '')}`;
+        const fullRange = new vscode.Range(
+            document.positionAt(0),
+            document.positionAt(existingText.length)
+        );
+
+        const applied = editor
+            ? await editor.edit(editBuilder => {
+                editBuilder.replace(fullRange, updatedText);
+            })
+            : await this.applyDocumentReplacement(document, fullRange, updatedText);
+
+        if (!applied) {
+            throw new Error('Could not add the stored program URL to the editor.');
+        }
+
+        this.lastProgramDocumentUri = document.uri.toString();
+        this.lastProgramContent = updatedText;
+    }
+
+    private async openLoadedProgram(url: string, content: string): Promise<void> {
+        const cleanedContent = this.stripGeneratedStoreUrlComment(content);
+        const documentContent = `// Wiz URL: ${url}\n${cleanedContent.replace(/^\s*\n/, '')}`;
+        const document = await vscode.workspace.openTextDocument({
+            language: 'while-star',
+            content: documentContent
+        });
+
+        await vscode.window.showTextDocument(document, {
+            preview: false,
+            viewColumn: vscode.ViewColumn.One
+        });
+
+        this.lastProgramDocumentUri = document.uri.toString();
+        this.lastProgramContent = documentContent;
+    }
+
+    private stripGeneratedStoreUrlComment(content: string): string {
+        return content.replace(/^\/\/\s*Wiz URL:\s*https?:\/\/[^\r\n]*(?:\r?\n)?/u, '');
+    }
+
+    private validateProgramUrl(value: string): string | undefined {
+        const trimmed = value.trim();
+        if (!trimmed) {
+            return 'Enter a Wiz program URL.';
+        }
+
+        try {
+            const url = new URL(trimmed);
+            if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+                return 'Use an http or https URL.';
+            }
+            if (!url.pathname.includes('/program/')) {
+                return 'The URL must contain /program/.';
+            }
+        } catch {
+            return 'Enter a valid URL.';
+        }
+
+        return undefined;
+    }
+
+    private getLastProgramDocument(): vscode.TextDocument | undefined {
+        if (!this.lastProgramDocumentUri) {
+            return undefined;
+        }
+
+        return vscode.workspace.textDocuments.find(
+            document => document.uri.toString() === this.lastProgramDocumentUri
+        );
+    }
+
+    private async applyDocumentReplacement(
+        document: vscode.TextDocument,
+        fullRange: vscode.Range,
+        updatedText: string
+    ): Promise<boolean> {
+        const edit = new vscode.WorkspaceEdit();
+        edit.replace(document.uri, fullRange, updatedText);
+        return vscode.workspace.applyEdit(edit);
     }
 
     private isWhileStarEditor(editor: vscode.TextEditor): boolean {

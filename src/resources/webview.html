@@ -662,6 +662,8 @@
                 <summary>Execution &amp; Runtime</summary>
                 <div class="panel-body action-grid">
                     <button id="action-run" class="action" onclick="run()">Run</button>
+                    <button id="action-store" class="action" onclick="storeProgram()">Store</button>
+                    <button id="action-load" class="action" onclick="loadProgram()">Load</button>
                     <button id="action-debug" class="action" onclick="debug()">Debug</button>
                 </div>
             </details>
@@ -1184,6 +1186,22 @@
             advanceTutorialForButton('action-run');
             vscode.postMessage({
                 command: 'run',
+            });
+        }
+
+        function storeProgram() {
+            resetGraphViewportStates();
+            advanceTutorialForButton('action-store');
+            vscode.postMessage({
+                command: 'store',
+            });
+        }
+
+        function loadProgram() {
+            resetGraphViewportStates();
+            advanceTutorialForButton('action-load');
+            vscode.postMessage({
+                command: 'load',
             });
         }
 

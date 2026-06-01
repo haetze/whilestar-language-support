@@ -9,6 +9,8 @@ import { AbstractAstReflection } from 'langium';
 
 export const WhileStarLanguageSupportTerminals = {
     WS: /\s+/,
+    ML_COMMENT: /\/\*[\s\S]*?\*\//,
+    SL_COMMENT: /\/\/[^\n\r]*/,
     ID: /[_a-zA-Z][\w_]*/,
     INT: /[0-9]+/,
     STRING: /\"[^\"\n\r]*\"/,
