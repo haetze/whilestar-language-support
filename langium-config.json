@@ -3,7 +3,7 @@
     "languages": [{
         "id": "while-star",
         "grammar": "src/language-server/while-star.langium",
-        "fileExtensions": [".wstar"],
+        "fileExtensions": [".wstar", ".w"],
         "textMate": {
             "out": "syntaxes/while-star.tmLanguage.json"
         }

@@ -3,11 +3,11 @@
   "displayName": "WhileStar Language Support",
   "description": "WhileStar Language Support",
   "version": "0.0.1",
-  "publisher": "assanali-uzakov",
+  "publisher": "haetze",
   "icon": "resources/whilestar-icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/asanali-uzakov/whilestar-language-support"
+    "url": "https://github.com/haetze/whilestar-language-support"
   },
   "packageManager": "pnpm@9.15.4",
   "engines": {
@@ -27,7 +27,8 @@
           "while-star"
         ],
         "extensions": [
-          ".wstar"
+          ".wstar",
+          ".w"
         ],
         "configuration": "./language-configuration.json"
       }

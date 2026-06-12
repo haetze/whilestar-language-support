@@ -1,3 +1,5 @@
+import { normalizeStoredProgramUrl } from './storedProgramUrl';
+
 declare const __WIZ_BASE_URL__: string;
 
 let wizBaseUrl = `${__WIZ_BASE_URL__.replace(/\/$/, '')}/raw`;
@@ -148,8 +150,9 @@ export function run(code: string, steps = 50, inputs = ''): Promise<string> {
     return requestText('/run', code, steps, inputs);
 }
 
-export function storeProgram(code: string, steps = 50, inputs = ''): Promise<string> {
-    return requestText('/store', code, steps, inputs);
+export async function storeProgram(code: string, steps = 50, inputs = ''): Promise<string> {
+    const url = await requestText('/store', code, steps, inputs);
+    return normalizeStoredProgramUrl(url);
 }
 
 export function loadProgram(url: string): Promise<string> {

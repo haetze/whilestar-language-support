@@ -2,7 +2,8 @@
   "name": "while-star",
   "scopeName": "source.while-star",
   "fileTypes": [
-    ".wstar"
+    ".wstar",
+    ".w"
   ],
   "patterns": [
     {

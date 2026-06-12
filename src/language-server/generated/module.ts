@@ -9,7 +9,7 @@ import { WhileStarGrammar } from './grammar.js';
 
 export const WhileStarLanguageMetaData = {
     languageId: 'while-star',
-    fileExtensions: ['.wstar'],
+    fileExtensions: ['.wstar', '.w'],
     caseInsensitive: false
 } as const satisfies LanguageMetaData;
 

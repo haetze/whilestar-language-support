@@ -1150,6 +1150,6 @@ export class WebviewManager implements vscode.Disposable {
     }
 
     private isWhileStarDocument(document: vscode.TextDocument): boolean {
-        return document.languageId === 'while-star' || document.fileName.endsWith('.wstar');
+        return document.languageId === 'while-star' || document.fileName.endsWith('.wstar') || document.fileName.endsWith('.w');
     }
 }

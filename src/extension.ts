@@ -192,11 +192,11 @@ function startLanguageClient(context: vscode.ExtensionContext): LanguageClient {
 
 	// Options to control the language client
 	const clientOptions: LanguageClientOptions = {
-		// Register the server for WhileStar documents
-		documentSelector: [{ scheme: 'file', language: 'while-star' }],
+		// Register the server for WhileStar documents, including unsaved loaded programs.
+		documentSelector: [{ language: 'while-star' }],
 		synchronize: {
-			// Notify the server about file changes to '.wstar' files contained in the workspace
-			fileEvents: vscode.workspace.createFileSystemWatcher('**/*.wstar')
+			// Notify the server about file changes to WhileStar files contained in the workspace
+			fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{wstar,w}')
 		}
 	};
 
