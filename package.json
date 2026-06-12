@@ -2,7 +2,7 @@
   "name": "whilestar-language-support",
   "displayName": "WhileStar Language Support",
   "description": "WhileStar Language Support",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "haetze",
   "icon": "resources/whilestar-icon.png",
   "repository": {
