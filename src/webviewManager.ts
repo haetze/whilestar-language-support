@@ -7,6 +7,7 @@ import {
     DataflowAnalysisResult,
     DebugStepData,
     DebugStepResponse,
+    StatementLocation,
     debugJson,
     loadProgram,
     proofHtml,
@@ -27,6 +28,13 @@ type TutorialStep = {
     title: string,
     description: string,
     exampleId?: TutorialExampleId
+};
+
+type DebugHighlightHistoryEntry = {
+    documentUri: string,
+    documentVersion: number,
+    range: vscode.Range,
+    stepData: DebugStepData
 };
 
 const TUTORIAL_STEPS: TutorialStep[] = [
@@ -147,12 +155,12 @@ const SEMANTICS_TUTORIAL_STEPS: TutorialStep[] = [
     {
         buttonId: 'action-debug-next',
         title: 'Assignment',
-        description: 'Step to the first assignment. For a statement a := e, the address expression a is resolved to an address and e is evaluated to a number; the next memory is m[address |-> value].'
+        description: 'The first current statement is an assignment. For a statement a := e, the address expression a is resolved to an address and e is evaluated to a number; the next memory is m[address |-> value].'
     },
     {
         buttonId: 'action-debug-next',
         title: 'More Memory Updates',
-        description: 'Step again. Assignments do not change the variable map v; they change the memory cell reached through v. That is why variable names remain stable while values change.'
+        description: 'This second assignment shows the same memory-update rule again. Assignments do not change the variable map v; they change the memory cell reached through v.'
     },
     {
         buttonId: 'action-debug-next',
@@ -165,7 +173,7 @@ const SEMANTICS_TUTORIAL_STEPS: TutorialStep[] = [
         description: 'The statement *p := 4 first reads p to obtain an address and then writes to the memory cell at that address. Since p contains &x, this update changes x indirectly.'
     },
     {
-        buttonId: 'action-debug-next',
+        buttonId: 'tutorialNext',
         title: 'Expression Evaluation',
         description: 'Now z := x + y evaluates a compound expression. Because the pointer update changed x, the arithmetic rule for + combines the new value of x with y.'
     },
@@ -182,22 +190,22 @@ const SEMANTICS_TUTORIAL_STEPS: TutorialStep[] = [
     {
         buttonId: 'action-debug-next',
         title: 'Selected Branch',
-        description: 'Step into the selected branch. The operational rule replaces the if statement by exactly the block whose guard result applies, followed by the remaining program.'
+        description: 'The selected branch is now the current statement. The operational rule replaced the if statement by exactly the block whose guard result applies, followed by the remaining program.'
     },
     {
         buttonId: 'action-debug-next',
         title: 'Loop Test',
-        description: 'The while statement also starts by evaluating a boolean condition. If it is false, the loop disappears and execution continues after the loop.'
+        description: 'The while statement also starts by evaluating a boolean condition. If it is false, the loop disappears; if it is true, execution continues with the loop body and keeps the loop after that body.'
     },
     {
         buttonId: 'action-debug-next',
-        title: 'Loop Unrolling',
-        description: 'When the while condition is true, the semantics unrolls the loop once: first execute the body, then put the same while statement back after the body.'
+        title: 'Loop Body Output',
+        description: 'The loop body starts with a print statement. Print evaluates its argument expressions and appends the text to the output stream without updating the variable map or memory.'
     },
     {
         buttonId: 'action-debug-next',
-        title: 'Output',
-        description: 'Print evaluates its argument expressions and appends the text to the output stream. It observes values but does not update the variable map or memory.'
+        title: 'Loop Counter Update',
+        description: 'The next statement decreases z. This is an ordinary assignment step again, and the updated value is what the following loop test will read.'
     },
     {
         buttonId: 'action-debug-prev',
@@ -228,6 +236,7 @@ export class WebviewManager implements vscode.Disposable {
     private currentAnalysisIteration = 0;
     private lastProgramDocumentUri: string | undefined;
     private lastProgramContent: string | undefined;
+    private debugHighlightHistory = new Map<number, DebugHighlightHistoryEntry>();
 
     private editorDecorations: vscode.TextEditorDecorationType[] = [];
 
@@ -403,8 +412,11 @@ export class WebviewManager implements vscode.Disposable {
 
             this.currentDebugData = response;
             this.debugStep = response.stepIndex;
+            if (response.stepIndex === 0) {
+                this.debugHighlightHistory.clear();
+            }
 
-            this.highlightCurrentStatement(response.stepData);
+            this.highlightCurrentStatement(response);
             this.displayVariableValues(response.stepData);
 
             this.updateContent('debug', this.generateDebugHtml(response), animate);
@@ -627,7 +639,7 @@ export class WebviewManager implements vscode.Disposable {
         }
     }
 
-    private highlightCurrentStatement(stepData: DebugStepData): void {
+    private highlightCurrentStatement(response: DebugStepResponse): void {
         const editor = this.getProgramEditor();
 
         if (!editor) {
@@ -636,14 +648,17 @@ export class WebviewManager implements vscode.Disposable {
 
         this.clearEditorDecorations();
 
+        const stepData = response.stepData;
         const statementText = stepData.statement?.trim();
         if (!statementText || statementText === 'ERROR') {
             return;
         }
 
         const document = editor.document;
-        const cleanStatement = this.cleanStatement(statementText);
-        const matchedRanges = this.findStatementInCode(document, cleanStatement);
+        const locationRanges = this.findStatementByLocation(document, stepData.statementLocation, statementText);
+        const matchedRanges = locationRanges.length > 0
+            ? locationRanges
+            : this.findStatementInCode(document, response);
 
         if (matchedRanges.length > 0) {
             const decoration = vscode.window.createTextEditorDecorationType({
@@ -656,7 +671,136 @@ export class WebviewManager implements vscode.Disposable {
             editor.setDecorations(decoration, matchedRanges);
             this.storeDecoration(decoration);
             editor.revealRange(matchedRanges[0], vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+            this.debugHighlightHistory.set(response.stepIndex, {
+                documentUri: document.uri.toString(),
+                documentVersion: document.version,
+                range: matchedRanges[0],
+                stepData
+            });
         }
+    }
+
+    private findStatementByLocation(
+        document: vscode.TextDocument,
+        location: StatementLocation | undefined,
+        statementText: string
+    ): vscode.Range[] {
+        if (!location || !this.isValidStatementLocation(location)) {
+            return [];
+        }
+
+        const lineOffsets = this.getGeneratedStoreUrlCommentLineOffset(document) > 0
+            ? [1, 0]
+            : [0];
+        const lineBaseAdjustments = [0, -1];
+        const columnBaseAdjustments = [0, -1];
+        const candidates: vscode.Range[] = [];
+        const seenCandidates = new Set<string>();
+
+        for (const lineOffset of lineOffsets) {
+            for (const lineBaseAdjustment of lineBaseAdjustments) {
+                for (const columnBaseAdjustment of columnBaseAdjustments) {
+                    const range = this.createStatementLocationRange(
+                        document,
+                        location,
+                        lineOffset + lineBaseAdjustment,
+                        columnBaseAdjustment
+                    );
+
+                    if (!range) {
+                        continue;
+                    }
+
+                    const key = `${range.start.line}:${range.start.character}:${range.end.line}:${range.end.character}`;
+                    if (!seenCandidates.has(key)) {
+                        candidates.push(range);
+                        seenCandidates.add(key);
+                    }
+                }
+            }
+        }
+
+        const matchingCandidate = candidates.find(range =>
+            this.locationRangeMatchesStatement(document, range, statementText)
+        );
+        if (matchingCandidate) {
+            return [matchingCandidate];
+        }
+
+        return candidates.slice(0, 1);
+    }
+
+    private isValidStatementLocation(location: StatementLocation): boolean {
+        return Number.isInteger(location.startLine)
+            && Number.isInteger(location.startColumn)
+            && Number.isInteger(location.endLine)
+            && Number.isInteger(location.endColumn);
+    }
+
+    private createStatementLocationRange(
+        document: vscode.TextDocument,
+        location: StatementLocation,
+        lineAdjustment: number,
+        columnAdjustment: number
+    ): vscode.Range | undefined {
+        const startLine = location.startLine + lineAdjustment;
+        const endLine = location.endLine + lineAdjustment;
+
+        if (
+            startLine < 0
+            || startLine >= document.lineCount
+            || endLine < startLine
+            || endLine >= document.lineCount
+        ) {
+            return undefined;
+        }
+
+        const rangeStartLine = Math.min(startLine, endLine);
+        const rangeEndLine = Math.max(startLine, endLine);
+        const startLineText = document.lineAt(rangeStartLine).text;
+        const endLineText = document.lineAt(rangeEndLine).text;
+        const startColumn = this.clamp(location.startColumn + columnAdjustment, 0, startLineText.length);
+        const endColumn = this.clamp(location.endColumn + columnAdjustment, 0, endLineText.length);
+
+        if (rangeStartLine === rangeEndLine && endColumn <= startColumn) {
+            return document.lineAt(rangeStartLine).range;
+        }
+
+        return new vscode.Range(rangeStartLine, startColumn, rangeEndLine, endColumn);
+    }
+
+    private locationRangeMatchesStatement(
+        document: vscode.TextDocument,
+        range: vscode.Range,
+        statementText: string
+    ): boolean {
+        const normalizedStatement = this.normalizeForMatching(this.cleanStatement(statementText));
+        const normalizedRangeText = this.normalizeForMatching(this.getWholeLineText(document, range));
+
+        return normalizedStatement.length > 0
+            && normalizedRangeText.length > 0
+            && (normalizedRangeText.includes(normalizedStatement)
+                || normalizedStatement.includes(normalizedRangeText));
+    }
+
+    private getWholeLineText(document: vscode.TextDocument, range: vscode.Range): string {
+        const start = new vscode.Position(range.start.line, 0);
+        const endLine = document.lineAt(range.end.line);
+        const end = new vscode.Position(range.end.line, endLine.text.length);
+        return document.getText(new vscode.Range(start, end));
+    }
+
+    private getGeneratedStoreUrlCommentLineOffset(document: vscode.TextDocument): number {
+        const match = document.getText().match(/^\/\/\s*Wiz URL:\s*https?:\/\/[^\r\n]*(?:\r?\n)?/u);
+        if (!match?.[0]) {
+            return 0;
+        }
+
+        return match[0].includes('\n') ? 1 : 0;
+    }
+
+    private clamp(value: number, min: number, max: number): number {
+        return Math.min(Math.max(value, min), max);
     }
 
     private cleanStatement(statement: string): string {
@@ -677,9 +821,11 @@ export class WebviewManager implements vscode.Disposable {
             .toLowerCase();
     }
 
-    private findStatementInCode(document: vscode.TextDocument, targetStatement: string): vscode.Range[] {
+    private findStatementInCode(document: vscode.TextDocument, response: DebugStepResponse): vscode.Range[] {
         const ranges: vscode.Range[] = [];
         const lines = document.getText().split('\n');
+        const stepData = response.stepData;
+        const targetStatement = this.cleanStatement(stepData.statement);
         const normalizedTarget = this.normalizeForMatching(targetStatement);
 
         for (let i = 0; i < lines.length; i++) {
@@ -690,7 +836,7 @@ export class WebviewManager implements vscode.Disposable {
         }
 
         if (ranges.length > 0) {
-            return [ranges[0]];
+            return this.bestStatementRange(document, ranges, response);
         }
 
         if (targetStatement.includes('=') || targetStatement.includes(':=')) {
@@ -722,7 +868,7 @@ export class WebviewManager implements vscode.Disposable {
         }
 
         if (ranges.length > 0) {
-            return [ranges[0]];
+            return this.bestStatementRange(document, ranges, response);
         }
 
         const keywords = ['if', 'while', 'print', 'extern', '{', '}'];
@@ -733,12 +879,180 @@ export class WebviewManager implements vscode.Disposable {
                 const normalizedLine = this.normalizeForMatching(lines[i]);
                 if (normalizedLine.includes(targetKeyword)) {
                     ranges.push(document.lineAt(i).range);
-                    break;
                 }
             }
         }
 
-        return ranges;
+        return this.bestStatementRange(document, ranges, response);
+    }
+
+    private bestStatementRange(
+        document: vscode.TextDocument,
+        ranges: vscode.Range[],
+        response: DebugStepResponse
+    ): vscode.Range[] {
+        const uniqueRanges = this.uniqueRanges(ranges);
+        if (uniqueRanges.length <= 1) {
+            return uniqueRanges;
+        }
+
+        const stepData = response.stepData;
+        const previousHistory = this.getPreviousDebugHighlightHistory(document, response.stepIndex);
+        const expectedContexts = [
+            this.normalizeProgramContext(`${stepData.statement}\n${stepData.remainder}`),
+            this.normalizeProgramContext(`${stepData.statement}\n${stepData.sPrime}`)
+        ].filter(context => context.length > 0);
+        const previousContexts = this.previousProgramContexts(previousHistory, stepData);
+
+        if (expectedContexts.length === 0 && previousContexts.length === 0) {
+            return [uniqueRanges[0]];
+        }
+
+        const scoredRanges = uniqueRanges.map(range => ({
+            range,
+            score: this.bestSourceContextScore(document, range, expectedContexts)
+                + this.bestPreviousSourceContextScore(document, range, previousContexts),
+            previousDistance: this.previousLineDistance(range, previousHistory)
+        }));
+
+        scoredRanges.sort((left, right) =>
+            right.score - left.score || left.previousDistance - right.previousDistance
+        );
+        return [scoredRanges[0].range];
+    }
+
+    private getPreviousDebugHighlightHistory(
+        document: vscode.TextDocument,
+        stepIndex: number
+    ): DebugHighlightHistoryEntry[] {
+        const documentUri = document.uri.toString();
+        const history: DebugHighlightHistoryEntry[] = [];
+
+        for (let index = stepIndex - 1; index >= 0 && history.length < 6; index--) {
+            const entry = this.debugHighlightHistory.get(index);
+            if (!entry || entry.documentUri !== documentUri || entry.documentVersion !== document.version) {
+                break;
+            }
+
+            history.unshift(entry);
+        }
+
+        return history;
+    }
+
+    private previousProgramContexts(
+        previousHistory: DebugHighlightHistoryEntry[],
+        stepData: DebugStepData
+    ): string[] {
+        if (previousHistory.length === 0) {
+            return [];
+        }
+
+        return [
+            this.normalizeProgramContext([
+                ...previousHistory.map(entry => entry.stepData.statement),
+                stepData.statement
+            ].join('\n'))
+        ].filter(context => context.length > 0);
+    }
+
+    private uniqueRanges(ranges: vscode.Range[]): vscode.Range[] {
+        const uniqueRanges: vscode.Range[] = [];
+        const seenRanges = new Set<string>();
+
+        for (const range of ranges) {
+            const key = `${range.start.line}:${range.start.character}:${range.end.line}:${range.end.character}`;
+            if (!seenRanges.has(key)) {
+                uniqueRanges.push(range);
+                seenRanges.add(key);
+            }
+        }
+
+        return uniqueRanges;
+    }
+
+    private bestSourceContextScore(
+        document: vscode.TextDocument,
+        range: vscode.Range,
+        expectedContexts: string[]
+    ): number {
+        if (expectedContexts.length === 0) {
+            return 0;
+        }
+
+        const sourceContext = this.normalizeProgramContext(this.getDocumentTextFromLine(document, range.start.line));
+        return Math.max(...expectedContexts.map(expectedContext =>
+            this.commonPrefixLength(sourceContext, expectedContext)
+        ));
+    }
+
+    private bestPreviousSourceContextScore(
+        document: vscode.TextDocument,
+        range: vscode.Range,
+        previousContexts: string[]
+    ): number {
+        if (previousContexts.length === 0) {
+            return 0;
+        }
+
+        const sourceContext = this.normalizeProgramContext(this.getDocumentTextThroughLine(document, range.end.line));
+        return Math.max(...previousContexts.map(previousContext =>
+            this.commonSuffixLength(sourceContext, previousContext)
+        ));
+    }
+
+    private previousLineDistance(
+        range: vscode.Range,
+        previousHistory: DebugHighlightHistoryEntry[]
+    ): number {
+        const previousRange = previousHistory.at(-1)?.range;
+        if (!previousRange) {
+            return Number.MAX_SAFE_INTEGER;
+        }
+
+        return Math.abs(range.start.line - previousRange.start.line);
+    }
+
+    private getDocumentTextFromLine(document: vscode.TextDocument, line: number): string {
+        const start = new vscode.Position(line, 0);
+        const end = document.lineAt(document.lineCount - 1).range.end;
+        return document.getText(new vscode.Range(start, end));
+    }
+
+    private getDocumentTextThroughLine(document: vscode.TextDocument, line: number): string {
+        const start = new vscode.Position(0, 0);
+        const endLine = document.lineAt(line);
+        const end = new vscode.Position(line, endLine.text.length);
+        return document.getText(new vscode.Range(start, end));
+    }
+
+    private normalizeProgramContext(content: string): string {
+        return this.stripGeneratedStoreUrlComment(content)
+            .replace(/\s+/g, '')
+            .replace(/[();]/g, '')
+            .toLowerCase();
+    }
+
+    private commonPrefixLength(left: string, right: string): number {
+        const limit = Math.min(left.length, right.length);
+        for (let index = 0; index < limit; index++) {
+            if (left[index] !== right[index]) {
+                return index;
+            }
+        }
+
+        return limit;
+    }
+
+    private commonSuffixLength(left: string, right: string): number {
+        const limit = Math.min(left.length, right.length);
+        for (let offset = 1; offset <= limit; offset++) {
+            if (left[left.length - offset] !== right[right.length - offset]) {
+                return offset - 1;
+            }
+        }
+
+        return limit;
     }
 
     private displayVariableValues(stepData: DebugStepData): void {
