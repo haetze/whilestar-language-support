@@ -238,8 +238,8 @@ export class WebviewManager implements vscode.Disposable {
     }
 
     public async openWebview(): Promise<void> {
-        if (this.panel && this.panel.visible) {
-            this.panel.reveal(vscode.ViewColumn.Beside);
+        if (this.panel) {
+            this.panel.reveal(this.panel.viewColumn ?? vscode.ViewColumn.Beside, true);
             return;
         }
 
@@ -548,9 +548,7 @@ export class WebviewManager implements vscode.Disposable {
     }
 
     public async executeDebug(): Promise<void> {
-        if (!this.panel) {
-            await this.openWebview();
-        }
+        await this.openWebview();
         this.debugStep = 0;
         await this.handleDebugCommand(true);
     }

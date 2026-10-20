@@ -59,7 +59,8 @@
       },
       {
         "command": "whileStar.debug",
-        "title": "WhileStar: Debug Code"
+        "title": "WhileStar: Debug Code",
+        "icon": "$(debug-alt)"
       },
       {
         "command": "whileStar.tc",
@@ -97,7 +98,16 @@
         "command": "whileStar.startSemanticsTutorial",
         "title": "WhileStar: Start Language Semantics Tutorial"
       }
-    ]
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "whileStar.debug",
+          "when": "editorLangId == while-star",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "node ./scripts/build-target.cjs && pnpm run lint",
