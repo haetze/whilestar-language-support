@@ -343,6 +343,7 @@ export class WebviewManager implements vscode.Disposable {
 
         this.panel.onDidDispose(() => {
             this.panel = undefined;
+            this.clearEditorDecorations();
         }, undefined, this.context.subscriptions);
     }
 
