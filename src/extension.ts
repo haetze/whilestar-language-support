@@ -18,6 +18,9 @@ const serverType: ServerType = __WIZ_SERVER_TYPE__;
 const serverPort = __WIZ_SERVER_PORT__;
 const wizBaseUrl = __WIZ_BASE_URL__;
 
+type RunMode = 'run' | 'debug';
+const RUN_MODE_KEY = 'whileStar.runMode';
+
 let languageClient: LanguageClient;
 
 export function activate(context: vscode.ExtensionContext) {
@@ -32,6 +35,13 @@ export function activate(context: vscode.ExtensionContext) {
 	languageClient = startLanguageClient(context);
 
 	const webviewManager = new WebviewManager(context);
+
+	// Remember whether the editor title button runs or debugs the active file
+	const setRunMode = (mode: RunMode) => {
+		void context.globalState.update(RUN_MODE_KEY, mode);
+		void vscode.commands.executeCommand('setContext', RUN_MODE_KEY, mode);
+	};
+	setRunMode(context.globalState.get<RunMode>(RUN_MODE_KEY, 'debug'));
 
 	// Register commands
 	const openCommandHandler = vscode.commands.registerCommand('whileStar.openInterpreter', async () => {
@@ -72,6 +82,17 @@ export function activate(context: vscode.ExtensionContext) {
 		} catch (error) {
 			console.error('Error debugging command:', error);
 		}
+	});
+
+	// Dropdown entries next to the editor title button: switch its mode, then execute
+	const selectRunCommandHandler = vscode.commands.registerCommand('whileStar.selectRun', async () => {
+		setRunMode('run');
+		await vscode.commands.executeCommand('whileStar.run');
+	});
+
+	const selectDebugCommandHandler = vscode.commands.registerCommand('whileStar.selectDebug', async () => {
+		setRunMode('debug');
+		await vscode.commands.executeCommand('whileStar.debug');
 	});
 
 	const tcCommandHandler = vscode.commands.registerCommand('whileStar.tc', async () => {
@@ -154,6 +175,8 @@ export function activate(context: vscode.ExtensionContext) {
 		storeCommandHandler,
 		loadCommandHandler,
 		debugCommandHandler,
+		selectRunCommandHandler,
+		selectDebugCommandHandler,
 		tcCommandHandler,
 		proofCommandHandler,
 		livenessCommandHandler,
