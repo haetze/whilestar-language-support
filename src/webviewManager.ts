@@ -527,9 +527,7 @@ export class WebviewManager implements vscode.Disposable {
     }
 
     public async executeRun(): Promise<void> {
-        if (!this.panel) {
-            await this.openWebview();
-        }
+        await this.openWebview();
         await this.handleRunCommand();
     }
 
